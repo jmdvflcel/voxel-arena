@@ -2,7 +2,7 @@
 set -euo pipefail
 exec > >(tee -a /var/log/voxel-combat-arena-install.log) 2>&1
 
-REPO_URL="https://github.com/YOUR_GITHUB_USERNAME/voxel-arena.git"
+REPO_URL="https://github.com/jmdvflcel/voxel-arena.git"
 APP_DIR="/opt/voxel-arena"
 APP_USER="ec2-user"
 
