@@ -30,6 +30,14 @@
         </label>
 
         <label>
+          Camera
+          <select id="cameraSelect">
+            <option value="first" selected>First person</option>
+            <option value="third">Third person</option>
+          </select>
+        </label>
+
+        <label>
           Field of view
           <input id="fovInput" type="range" min="65" max="95" value="78">
           <span id="fovValue">78</span>
@@ -51,7 +59,7 @@
       <button id="playButton">Enter Arena</button>
 
       <div class="control-strip">
-        WASD move · Shift sprint · C crouch/slide · Space jump/mantle · Left click fire/attack · Right click aim/block · R reload · 1–5 weapons · Enter chat · Tab scoreboard · Esc settings
+        WASD move · Shift sprint · C crouch/slide · Space jump/mantle · Left click fire/attack · Right click aim/block · R reload · 1–5 weapons · V camera · Enter chat · Tab scoreboard · Esc settings
       </div>
     </div>
   </div>
@@ -67,6 +75,14 @@
           <option value="low">Performance</option>
           <option value="medium">Balanced</option>
           <option value="high">High</option>
+        </select>
+      </label>
+
+      <label>
+        Camera
+        <select id="pauseCamera">
+          <option value="first">First person</option>
+          <option value="third">Third person</option>
         </select>
       </label>
 
@@ -120,6 +136,8 @@
   <aside id="radarPanel">
     <canvas id="radar" width="180" height="180"></canvas>
   </aside>
+
+  <div id="cameraModeBadge">FIRST PERSON · V TO SWITCH</div>
 
   <div id="crosshair">
     <span class="line top"></span>

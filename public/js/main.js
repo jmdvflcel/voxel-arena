@@ -14,7 +14,7 @@ import {
 } from "./world.js";
 import { EffectsSystem } from "./effects.js";
 import { AudioSystem } from "./audio.js";
-import { RemotePlayer, FirstPersonWeapon } from "./player.js";
+import { RemotePlayer, LocalPlayerAvatar, FirstPersonWeapon } from "./player.js";
 import { NetworkClient } from "./network.js";
 
 const $ = (id) => document.getElementById(id);
@@ -24,7 +24,8 @@ const settings = {
   quality: savedSettings.quality || "medium",
   fov: Number(savedSettings.fov || 78),
   sensitivity: Number(savedSettings.sensitivity || 1),
-  volume: Number(savedSettings.volume ?? 0.45)
+  volume: Number(savedSettings.volume ?? 0.45),
+  cameraMode: savedSettings.cameraMode === "third" ? "third" : "first"
 };
 
 $("qualitySelect").value = settings.quality;
@@ -35,6 +36,8 @@ $("sensitivityInput").value = settings.sensitivity;
 $("pauseSensitivity").value = settings.sensitivity;
 $("volumeInput").value = settings.volume;
 $("pauseVolume").value = settings.volume;
+$("cameraSelect").value = settings.cameraMode;
+$("pauseCamera").value = settings.cameraMode;
 $("fovValue").textContent = String(settings.fov);
 $("sensitivityValue").textContent = settings.sensitivity.toFixed(2);
 $("volumeValue").textContent = `${Math.round(settings.volume * 100)}%`;
@@ -95,6 +98,9 @@ audio.setVolume(settings.volume);
 const network = new NetworkClient();
 const clock = new THREE.Clock();
 const firstPersonWeapon = new FirstPersonWeapon(camera);
+let localAvatar = null;
+const thirdPersonRaycaster = new THREE.Raycaster();
+const thirdPersonCameraPosition = new THREE.Vector3();
 
 const local = {
   id: null,
@@ -170,6 +176,32 @@ const radarContext = $("radar").getContext("2d");
 
 function saveSettings() {
   localStorage.setItem("voxelCombatSettings", JSON.stringify(settings));
+}
+
+function setCameraMode(mode, announce = true) {
+  settings.cameraMode = mode === "third" ? "third" : "first";
+  $("cameraSelect").value = settings.cameraMode;
+  $("pauseCamera").value = settings.cameraMode;
+  document.body.classList.toggle("third-person", settings.cameraMode === "third");
+  firstPersonWeapon.setVisible(settings.cameraMode === "first");
+
+  if (localAvatar) {
+    localAvatar.group.visible = settings.cameraMode === "third" && local.alive;
+  }
+
+  $("cameraModeBadge").textContent = settings.cameraMode === "third"
+    ? "THIRD PERSON · V TO SWITCH"
+    : "FIRST PERSON · V TO SWITCH";
+
+  if (announce && pointerStarted) {
+    showCombatText(settings.cameraMode === "third" ? "THIRD PERSON" : "FIRST PERSON");
+  }
+
+  saveSettings();
+}
+
+function toggleCameraMode() {
+  setCameraMode(settings.cameraMode === "first" ? "third" : "first");
 }
 
 function applyQuality(name) {
@@ -627,19 +659,21 @@ function simulateLocalMovement(dt) {
   local.previousJump = local.input.jump;
   local.previousCrouch = local.input.crouch;
 
-  let localX = (local.input.right ? 1 : 0) - (local.input.left ? 1 : 0);
-  let localZ = (local.input.backward ? 1 : 0) - (local.input.forward ? 1 : 0);
-  const length = Math.hypot(localX, localZ);
+  // Standard camera-relative WASD:
+  // W forward, S backward, A strafe left, D strafe right.
+  let rightAmount = (local.input.right ? 1 : 0) - (local.input.left ? 1 : 0);
+  let forwardAmount = (local.input.forward ? 1 : 0) - (local.input.backward ? 1 : 0);
+  const length = Math.hypot(rightAmount, forwardAmount);
 
   if (length > 0) {
-    localX /= length;
-    localZ /= length;
+    rightAmount /= length;
+    forwardAmount /= length;
   }
 
   const sin = Math.sin(local.yaw);
   const cos = Math.cos(local.yaw);
-  const worldX = localX * cos - localZ * sin;
-  const worldZ = localX * sin + localZ * cos;
+  const worldX = rightAmount * cos - forwardAmount * sin;
+  const worldZ = -rightAmount * sin - forwardAmount * cos;
 
   let maxSpeed = MOVEMENT.walkSpeed;
   if (local.input.crouch) maxSpeed = MOVEMENT.crouchSpeed;
@@ -759,17 +793,66 @@ function simulateLocalMovement(dt) {
   landingKick *= Math.pow(0.04, dt);
   cameraRoll += ((local.input.right ? -1 : 0) + (local.input.left ? 1 : 0) - cameraRoll) * Math.min(1, dt * 8);
 
-  camera.position.set(
-    local.x + bobX,
-    local.y + eyeHeight - bobY - landingKick,
+  updateCameraTransform(dt, eyeHeight, bobX, bobY);
+
+  recoilPitch *= Math.pow(0.01, dt);
+}
+
+function updateCameraTransform(dt, eyeHeight, bobX, bobY) {
+  const roll = cameraRoll * 0.012;
+
+  if (settings.cameraMode === "first") {
+    camera.position.set(
+      local.x + bobX,
+      local.y + eyeHeight - bobY - landingKick,
+      local.z
+    );
+    camera.rotation.y = local.yaw;
+    camera.rotation.x = local.pitch + recoilPitch;
+    camera.rotation.z = roll;
+    return;
+  }
+
+  const pitch = THREE.MathUtils.clamp(local.pitch * 0.72, -0.85, 0.72);
+  const cosPitch = Math.cos(pitch);
+  const viewDirection = new THREE.Vector3(
+    -Math.sin(local.yaw) * cosPitch,
+    Math.sin(pitch),
+    -Math.cos(local.yaw) * cosPitch
+  ).normalize();
+  const right = new THREE.Vector3(Math.cos(local.yaw), 0, -Math.sin(local.yaw));
+  const pivot = new THREE.Vector3(
+    local.x,
+    local.y + Math.max(1.25, eyeHeight * 0.88),
     local.z
   );
 
-  camera.rotation.y = local.yaw;
-  camera.rotation.x = local.pitch + recoilPitch;
-  camera.rotation.z = cameraRoll * 0.012;
+  const desired = pivot
+    .clone()
+    .addScaledVector(viewDirection, -5.2)
+    .addScaledVector(right, 0.72);
+  desired.y += 0.42;
 
-  recoilPitch *= Math.pow(0.01, dt);
+  const rayDirection = desired.clone().sub(pivot);
+  const desiredDistance = rayDirection.length();
+  rayDirection.normalize();
+  thirdPersonRaycaster.set(pivot, rayDirection);
+  thirdPersonRaycaster.far = desiredDistance;
+  const hit = thirdPersonRaycaster.intersectObjects(world.meshes, false)[0];
+
+  if (hit && hit.distance < desiredDistance) {
+    desired.copy(pivot).addScaledVector(rayDirection, Math.max(0.55, hit.distance - 0.28));
+  }
+
+  if (thirdPersonCameraPosition.lengthSq() === 0) {
+    thirdPersonCameraPosition.copy(desired);
+  }
+
+  thirdPersonCameraPosition.lerp(desired, 1 - Math.exp(-dt * 14));
+  camera.position.copy(thirdPersonCameraPosition);
+  camera.rotation.y = local.yaw;
+  camera.rotation.x = pitch + recoilPitch * 0.55;
+  camera.rotation.z = roll * 0.45;
 }
 
 function sendInput(now) {
@@ -831,6 +914,7 @@ function attackSword() {
   localComboAt = now;
   nextLocalAttackAt = now + info.localCooldown + localCombo * 45;
   firstPersonWeapon.melee(localCombo);
+  if (localAvatar) localAvatar.triggerSwing(localCombo);
   audio.playWeapon("sword");
   network.send("melee", { combo: localCombo });
 }
@@ -850,6 +934,7 @@ function fireGun() {
   nextLocalAttackAt = now + info.localCooldown;
   ammo.magazine -= 1;
   firstPersonWeapon.fire();
+  if (localAvatar) localAvatar.triggerFire();
   audio.playWeapon(local.weapon);
   recoilPitch += info.recoil;
   network.send("fire", {
@@ -858,7 +943,9 @@ function fireGun() {
   });
   updateWeaponHud();
 
-  const origin = firstPersonWeapon.muzzleWorldPosition();
+  const origin = settings.cameraMode === "third" && localAvatar
+    ? localAvatar.muzzleWorldPosition()
+    : firstPersonWeapon.muzzleWorldPosition();
   const direction = new THREE.Vector3();
   camera.getWorldDirection(direction);
   const end = origin.clone().addScaledVector(direction, 18);
@@ -964,6 +1051,11 @@ function setupNetworkHandlers() {
     local.name = message.player.name;
     local.team = message.player.team;
 
+    if (!localAvatar) {
+      localAvatar = new LocalPlayerAvatar(scene, message.player, quality);
+    }
+    setCameraMode(settings.cameraMode, false);
+
     $("azText").textContent = message.availabilityZone;
     $("instanceText").textContent = message.instanceId;
 
@@ -1068,9 +1160,8 @@ function setupNetworkHandlers() {
     if (remote) {
       remote.triggerFire();
       audio.playWeapon(message.weapon);
+      effects.spawnMuzzle(message.origin, info.color, message.weapon === "shotgun" ? 1.5 : 1);
     }
-
-    effects.spawnMuzzle(message.origin, info.color, message.weapon === "shotgun" ? 1.5 : 1);
 
     for (const impact of message.impacts || []) {
       effects.spawnTracer(message.origin, impact, info.color, message.weapon === "shotgun" ? 1.25 : 1);
@@ -1231,11 +1322,13 @@ function syncSettingsFromMenu() {
   updateSensitivity($("sensitivityInput").value);
   updateVolume($("volumeInput").value);
   applyQuality($("qualitySelect").value);
+  setCameraMode($("cameraSelect").value, false);
 
   $("pauseQuality").value = settings.quality;
   $("pauseFov").value = settings.fov;
   $("pauseSensitivity").value = settings.sensitivity;
   $("pauseVolume").value = settings.volume;
+  $("pauseCamera").value = settings.cameraMode;
 }
 
 $("playButton").addEventListener("click", () => {
@@ -1261,6 +1354,14 @@ $("qualitySelect").addEventListener("change", (event) => applyQuality(event.targ
 $("pauseQuality").addEventListener("change", (event) => {
   applyQuality(event.target.value);
   $("qualitySelect").value = event.target.value;
+});
+
+$("cameraSelect").addEventListener("change", (event) => {
+  setCameraMode(event.target.value, false);
+});
+$("pauseCamera").addEventListener("change", (event) => {
+  setCameraMode(event.target.value, false);
+  $("cameraSelect").value = event.target.value;
 });
 
 $("fovInput").addEventListener("input", (event) => updateFov(event.target.value));
@@ -1328,6 +1429,10 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "KeyR") {
     reloadWeapon();
+  }
+
+  if (event.code === "KeyV" && !event.repeat) {
+    toggleCameraMode();
   }
 
   if (event.code === "Enter") {
@@ -1470,6 +1575,18 @@ function updateRemotePlayers(now, dt) {
   }
 }
 
+function updateLocalAvatar(now, dt) {
+  if (!localAvatar) return;
+
+  localAvatar.renderLocal({
+    ...local,
+    sliding: performance.now() < local.slideUntil,
+    crouching: local.input.crouch,
+    reloading: local.reloading,
+    blocking: local.blocking
+  }, now, dt, settings.cameraMode === "third");
+}
+
 function updateDeathCountdown(now) {
   if (local.alive || $("deathScreen").classList.contains("hidden")) return;
 
@@ -1508,6 +1625,7 @@ function animate() {
   sendInput(now);
   updateAutomaticFire();
   updateRemotePlayers(now, dt);
+  updateLocalAvatar(now, dt);
   effects.update(dt);
   pickupRenderer.update(now / 1000);
   updateMatchClock();
@@ -1538,4 +1656,5 @@ function animate() {
 buildWeaponSlots();
 setHealthArmor(100, 25);
 updateRendererResolution();
+setCameraMode(settings.cameraMode, false);
 animate();

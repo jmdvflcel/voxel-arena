@@ -305,6 +305,7 @@ export class RemotePlayer {
     this.lastRenderedPosition = new THREE.Vector3(player.x, player.y, player.z);
     this.swing = 0;
     this.fireKick = 0;
+    this.fireKickVelocity = 0;
     this.blocking = false;
     this.reloading = false;
     this.alive = player.alive !== false;
@@ -376,7 +377,7 @@ export class RemotePlayer {
   }
 
   triggerFire() {
-    this.fireKick = 1;
+    this.fireKickVelocity += 7.5;
   }
 
   render(now, dt) {
@@ -436,12 +437,11 @@ export class RemotePlayer {
       this.rightArmPivot.rotation.z += (0.05 - this.rightArmPivot.rotation.z) * Math.min(1, dt * 14);
     }
 
-    if (this.fireKick > 0) {
-      this.fireKick = Math.max(0, this.fireKick - dt * 8);
-      this.weaponHolder.position.z = -0.12 + this.fireKick * 0.16;
-    } else {
-      this.weaponHolder.position.z += (-0.12 - this.weaponHolder.position.z) * Math.min(1, dt * 16);
-    }
+    // Damped recoil spring for smoother remote gun animation.
+    this.fireKickVelocity += (-92 * this.fireKick - 17 * this.fireKickVelocity) * dt;
+    this.fireKick += this.fireKickVelocity * dt;
+    this.fireKick = THREE.MathUtils.clamp(this.fireKick, -0.08, 0.7);
+    this.weaponHolder.position.z += (-0.12 + this.fireKick * 0.14 - this.weaponHolder.position.z) * Math.min(1, dt * 22);
 
     if (this.reloading && this.weaponName !== "sword") {
       this.rightArmPivot.rotation.z = -0.85 + Math.sin(now * 0.012) * 0.08;
@@ -451,10 +451,83 @@ export class RemotePlayer {
     }
   }
 
+  renderLocal(player, now, dt, visible = true) {
+    this.group.visible = visible && player.alive !== false;
+    if (!this.group.visible) return;
+
+    this.setWeapon(player.weapon || this.weaponName);
+    this.name = player.name || this.name;
+    this.team = player.team || this.team;
+    this.blocking = Boolean(player.blocking);
+    this.reloading = Boolean(player.reloading);
+    updateCanvasLabel(this.label, this.name, player.health ?? 100, this.team);
+
+    this.group.position.set(player.x, player.y, player.z);
+    this.group.rotation.y = player.yaw || 0;
+
+    const speed = Math.hypot(player.vx || 0, player.vz || 0);
+    const stride = now * 0.008 * Math.max(1, speed);
+    const strideAmount = Math.min(0.75, speed * 0.09);
+
+    this.leftLegPivot.rotation.x = Math.sin(stride) * strideAmount;
+    this.rightLegPivot.rotation.x = -Math.sin(stride) * strideAmount;
+    this.leftArmPivot.rotation.x = -Math.sin(stride) * strideAmount * 0.62;
+
+    const crouchOffset = player.crouching || player.sliding ? -0.36 : 0;
+    this.torso.position.y = 1.12 + crouchOffset;
+    this.head.position.y = 1.82 + crouchOffset;
+    this.label.position.y = 2.55 + crouchOffset;
+
+    if (this.swing > 0) {
+      this.swing = Math.max(0, this.swing - dt * 4.8);
+      const progress = 1 - this.swing;
+      this.rightArmPivot.rotation.x = -1.1 + Math.sin(progress * Math.PI) * 2.15;
+      this.rightArmPivot.rotation.z = -0.25 + Math.sin(progress * Math.PI) * 0.72;
+    } else if (this.blocking && this.weaponName === "sword") {
+      this.rightArmPivot.rotation.x += (-1.15 - this.rightArmPivot.rotation.x) * Math.min(1, dt * 15);
+      this.rightArmPivot.rotation.z += (-0.85 - this.rightArmPivot.rotation.z) * Math.min(1, dt * 15);
+    } else {
+      this.rightArmPivot.rotation.x += (-0.72 - this.rightArmPivot.rotation.x) * Math.min(1, dt * 14);
+      this.rightArmPivot.rotation.z += (0.05 - this.rightArmPivot.rotation.z) * Math.min(1, dt * 14);
+    }
+
+    this.fireKickVelocity += (-92 * this.fireKick - 17 * this.fireKickVelocity) * dt;
+    this.fireKick += this.fireKickVelocity * dt;
+    this.fireKick = THREE.MathUtils.clamp(this.fireKick, -0.08, 0.7);
+    this.weaponHolder.position.z += (-0.12 + this.fireKick * 0.14 - this.weaponHolder.position.z) * Math.min(1, dt * 22);
+
+    if (this.reloading && this.weaponName !== "sword") {
+      this.rightArmPivot.rotation.z = -0.85 + Math.sin(now * 0.012) * 0.08;
+      this.weaponHolder.rotation.x += (-0.8 - this.weaponHolder.rotation.x) * Math.min(1, dt * 14);
+    } else {
+      this.weaponHolder.rotation.x += (0 - this.weaponHolder.rotation.x) * Math.min(1, dt * 12);
+    }
+  }
+
+  muzzleWorldPosition() {
+    this.group.updateMatrixWorld(true);
+    if (!this.weapon) {
+      return new THREE.Vector3(this.group.position.x, this.group.position.y + 1.45, this.group.position.z);
+    }
+
+    const local = this.weaponName === "sword"
+      ? new THREE.Vector3(0, 1.45, 0)
+      : new THREE.Vector3(0, 0, -1.25);
+
+    return this.weapon.localToWorld(local);
+  }
+
   dispose() {
     this.scene.remove(this.group);
     this.label.material.map.dispose();
     this.label.material.dispose();
+  }
+}
+
+export class LocalPlayerAvatar extends RemotePlayer {
+  constructor(scene, player, quality) {
+    super(scene, { ...player, id: "__local_avatar__" }, quality);
+    this.samples.length = 0;
   }
 }
 
@@ -465,7 +538,6 @@ export class FirstPersonWeapon {
     this.camera.add(this.root);
     this.models = new Map();
     this.current = "rifle";
-    this.recoil = 0;
     this.swing = 0;
     this.reload = 0;
     this.block = 0;
@@ -473,6 +545,12 @@ export class FirstPersonWeapon {
     this.swayY = 0;
     this.bob = 0;
     this.aim = 0;
+    this.targetAim = 0;
+    this.recoilPosition = 0;
+    this.recoilVelocity = 0;
+    this.recoilYaw = 0;
+    this.recoilYawVelocity = 0;
+    this.switchBlend = 1;
 
     for (const name of Object.keys(WEAPON_INFO)) {
       const model = createWeaponModel(name, true);
@@ -485,6 +563,10 @@ export class FirstPersonWeapon {
     this.setWeapon("rifle");
   }
 
+  setVisible(visible) {
+    this.root.visible = Boolean(visible);
+  }
+
   setWeapon(name) {
     if (!this.models.has(name)) return;
 
@@ -494,10 +576,14 @@ export class FirstPersonWeapon {
 
     this.current = name;
     this.models.get(name).visible = true;
+    this.switchBlend = 0;
   }
 
   fire() {
-    this.recoil = 1;
+    const info = WEAPON_INFO[this.current] || WEAPON_INFO.rifle;
+    const impulse = 5.6 + info.recoil * 78;
+    this.recoilVelocity += impulse;
+    this.recoilYawVelocity += (Math.random() - 0.5) * (1.3 + info.recoil * 15);
   }
 
   melee(combo) {
@@ -513,7 +599,7 @@ export class FirstPersonWeapon {
   }
 
   setAim(active) {
-    this.aim += ((active ? 1 : 0) - this.aim) * 0.24;
+    this.targetAim = active ? 1 : 0;
   }
 
   addSway(deltaX, deltaY) {
@@ -528,6 +614,17 @@ export class FirstPersonWeapon {
     this.swayX *= Math.pow(0.03, dt);
     this.swayY *= Math.pow(0.03, dt);
     this.setAim(aiming);
+    this.aim += (this.targetAim - this.aim) * (1 - Math.exp(-dt * 15));
+    this.switchBlend += (1 - this.switchBlend) * (1 - Math.exp(-dt * 13));
+
+    // Critically damped recoil springs make automatic fire feel fluid instead
+    // of snapping the gun instantly between two poses.
+    this.recoilVelocity += (-118 * this.recoilPosition - 19 * this.recoilVelocity) * dt;
+    this.recoilPosition += this.recoilVelocity * dt;
+    this.recoilYawVelocity += (-105 * this.recoilYaw - 18 * this.recoilYawVelocity) * dt;
+    this.recoilYaw += this.recoilYawVelocity * dt;
+    this.recoilPosition = THREE.MathUtils.clamp(this.recoilPosition, -0.12, 1.1);
+    this.recoilYaw = THREE.MathUtils.clamp(this.recoilYaw, -0.16, 0.16);
 
     const moving = movementSpeed > 0.2 && grounded;
     if (moving) this.bob += dt * (7 + movementSpeed * 0.55);
@@ -535,7 +632,6 @@ export class FirstPersonWeapon {
     const bobX = moving ? Math.sin(this.bob) * 0.035 * Math.min(1, movementSpeed / 5) : 0;
     const bobY = moving ? Math.abs(Math.cos(this.bob)) * 0.026 * Math.min(1, movementSpeed / 5) : 0;
 
-    const info = WEAPON_INFO[this.current];
     const isSword = this.current === "sword";
     const hipPosition = isSword
       ? new THREE.Vector3(0.52, -0.52, -0.72)
@@ -545,24 +641,24 @@ export class FirstPersonWeapon {
       : new THREE.Vector3(0.02, -0.31, -0.62);
 
     const targetPosition = hipPosition.clone().lerp(aimPosition, this.aim);
-    targetPosition.x += bobX + this.swayX;
+    targetPosition.x += bobX + this.swayX + this.recoilYaw * 0.16;
     targetPosition.y -= bobY + this.swayY;
-    targetPosition.z += this.recoil * 0.16;
-
-    this.root.position.lerp(targetPosition, Math.min(1, dt * 18));
+    targetPosition.z += this.recoilPosition * 0.095;
+    targetPosition.y -= (1 - this.switchBlend) * 0.34;
 
     const targetRotation = new THREE.Euler(
-      -0.08 - this.swayY * 1.8 + this.recoil * 0.12,
-      -0.12 - this.swayX * 1.8,
+      -0.08 - this.swayY * 1.8 + this.recoilPosition * 0.075,
+      -0.12 - this.swayX * 1.8 + this.recoilYaw,
       isSword ? -0.22 : 0.02
     );
 
     if (this.swing > 0) {
       this.swing = Math.max(0, this.swing - dt * 4.4);
       const progress = 1 - this.swing;
-      targetRotation.x -= Math.sin(progress * Math.PI) * 0.8;
-      targetRotation.z -= Math.sin(progress * Math.PI) * 1.45;
-      targetPosition.x -= Math.sin(progress * Math.PI) * 0.2;
+      const arc = Math.sin(progress * Math.PI);
+      targetRotation.x -= arc * 0.8;
+      targetRotation.z -= arc * 1.45;
+      targetPosition.x -= arc * 0.2;
     }
 
     if (this.block > 0 && isSword) {
@@ -577,11 +673,12 @@ export class FirstPersonWeapon {
       targetPosition.set(0.18, -0.7, -0.55);
     }
 
-    this.root.rotation.x += (targetRotation.x - this.root.rotation.x) * Math.min(1, dt * 18);
-    this.root.rotation.y += (targetRotation.y - this.root.rotation.y) * Math.min(1, dt * 18);
-    this.root.rotation.z += (targetRotation.z - this.root.rotation.z) * Math.min(1, dt * 18);
-
-    this.recoil = Math.max(0, this.recoil - dt * (8 + info.recoil * 30));
+    const positionBlend = 1 - Math.exp(-dt * 21);
+    const rotationBlend = 1 - Math.exp(-dt * 22);
+    this.root.position.lerp(targetPosition, positionBlend);
+    this.root.rotation.x += (targetRotation.x - this.root.rotation.x) * rotationBlend;
+    this.root.rotation.y += (targetRotation.y - this.root.rotation.y) * rotationBlend;
+    this.root.rotation.z += (targetRotation.z - this.root.rotation.z) * rotationBlend;
   }
 
   muzzleWorldPosition() {
@@ -589,6 +686,8 @@ export class FirstPersonWeapon {
       ? new THREE.Vector3(0, 1.5, 0)
       : new THREE.Vector3(0, 0, -1.2);
 
+    this.camera.updateMatrixWorld(true);
     return this.models.get(this.current).localToWorld(local);
   }
 }
+

@@ -7,7 +7,7 @@ REPO_URL="https://github.com/jmdvflcel/voxel-arena.git"
 APP_DIR="/opt/voxel-arena"
 APP_USER="ec2-user"
 
-echo "=== Voxel Combat Arena v4 deployment starting ==="
+echo "=== Voxel Combat Arena v4.2 deployment starting ==="
 
 TOKEN=$(curl -fsS -X PUT \
   -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" \
@@ -59,7 +59,32 @@ if [ ! -f "$APP_DIR/package.json" ]; then
 fi
 
 cd "$APP_DIR"
-runuser -u "$APP_USER" -- npm install --omit=dev
+
+# Ignore any environment-specific lockfile and install from the public npm registry.
+rm -rf node_modules
+rm -f package-lock.json
+runuser -u "$APP_USER" -- npm config set registry https://registry.npmjs.org/
+
+NPM_OK=0
+for attempt in 1 2 3; do
+  rm -rf node_modules /tmp/voxel-npm-cache
+  install -d -o "$APP_USER" -g "$APP_USER" /tmp/voxel-npm-cache
+
+  if runuser -u "$APP_USER" -- env npm_config_cache=/tmp/voxel-npm-cache \
+    npm install --omit=dev --no-audit --no-fund --package-lock=false; then
+    NPM_OK=1
+    break
+  fi
+
+  echo "npm installation attempt $attempt failed; retrying..."
+  sleep 5
+done
+
+if [ "$NPM_OK" -ne 1 ] || [ ! -f node_modules/express/package.json ] || [ ! -f node_modules/three/build/three.module.js ]; then
+  echo "npm dependencies failed to install correctly."
+  exit 1
+fi
+
 runuser -u "$APP_USER" -- npm run check
 
 cat > /etc/voxel-arena.env <<ENV
@@ -74,7 +99,7 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
 cat > /etc/systemd/system/voxel-arena.service <<'SERVICE'
 [Unit]
-Description=Voxel Combat Arena v4 Multiplayer Server
+Description=Voxel Combat Arena v4.2 Multiplayer Server
 After=network-online.target
 Wants=network-online.target
 
@@ -118,6 +143,7 @@ events {
 http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
+    types_hash_max_size 2048;
 
     log_format main '$remote_addr - $remote_user [$time_local] "$request" '
                     '$status $body_bytes_sent "$http_referer" '
@@ -179,18 +205,26 @@ systemctl restart voxel-arena
 systemctl enable nginx
 systemctl restart nginx
 
-for attempt in $(seq 1 20); do
+HEALTHY=0
+for attempt in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:3000/api/status; then
     echo
     echo "Application health check passed."
+    HEALTHY=1
     break
   fi
 
   sleep 2
 done
 
+if [ "$HEALTHY" -ne 1 ]; then
+  echo "Application failed its health check."
+  journalctl -u voxel-arena -n 120 --no-pager || true
+  exit 1
+fi
+
 systemctl --no-pager --full status voxel-arena || true
 systemctl --no-pager --full status nginx || true
 
-echo "=== Voxel Combat Arena deployment complete ==="
+echo "=== Voxel Combat Arena v4.2 deployment complete ==="
 echo "Open http://YOUR-EC2-PUBLIC-IP after allowing inbound TCP port 80."

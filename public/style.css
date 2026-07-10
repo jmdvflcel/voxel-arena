@@ -350,6 +350,31 @@ button {
   border-radius: 50%;
 }
 
+
+#cameraModeBadge {
+  position: fixed;
+  left: 50%;
+  bottom: 154px;
+  z-index: 13;
+  transform: translateX(-50%);
+  padding: 7px 11px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  color: rgba(255,255,255,.74);
+  background: rgba(5,10,18,.58);
+  backdrop-filter: blur(8px);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+body.third-person #cameraModeBadge {
+  color: #9ed7ff;
+  border-color: rgba(94,170,255,.34);
+}
+
 #crosshair {
   --gap: 8px;
   --length: 9px;

@@ -159,7 +159,7 @@ app.get("/api/status", (_req, res) => {
   res.json({
     status: "online",
     app: "Voxel Combat Arena",
-    version: "4.0.0",
+    version: "4.2.0",
     players: clients.size,
     availabilityZone: EC2_AZ,
     instanceId: INSTANCE_ID,
@@ -381,17 +381,20 @@ function simulateMovement(player, dt, now) {
   const sin = Math.sin(player.yaw);
   const cos = Math.cos(player.yaw);
 
-  let localX = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  let localZ = (input.backward ? 1 : 0) - (input.forward ? 1 : 0);
-  const inputLength = Math.hypot(localX, localZ);
+  // Standard camera-relative WASD movement:
+  // W moves in the direction the camera faces, S moves backward,
+  // A strafes left, and D strafes right.
+  let rightAmount = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+  let forwardAmount = (input.forward ? 1 : 0) - (input.backward ? 1 : 0);
+  const inputLength = Math.hypot(rightAmount, forwardAmount);
 
   if (inputLength > 0) {
-    localX /= inputLength;
-    localZ /= inputLength;
+    rightAmount /= inputLength;
+    forwardAmount /= inputLength;
   }
 
-  const worldX = localX * cos - localZ * sin;
-  const worldZ = localX * sin + localZ * cos;
+  const worldX = rightAmount * cos - forwardAmount * sin;
+  const worldZ = -rightAmount * sin - forwardAmount * cos;
 
   let maxSpeed = WALK_SPEED;
   if (input.crouch) maxSpeed = CROUCH_SPEED;
@@ -1420,7 +1423,7 @@ wss.on("connection", (ws) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Voxel Combat Arena v4 listening on port ${PORT}`);
+  console.log(`Voxel Combat Arena v4.2 listening on port ${PORT}`);
   console.log(`EC2 AZ: ${EC2_AZ}`);
   console.log(`Instance: ${INSTANCE_ID}`);
 });

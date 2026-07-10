@@ -81,18 +81,24 @@ export class EffectsSystem {
     const start = new THREE.Vector3(origin.x, origin.y, origin.z);
     const finish = new THREE.Vector3(end.x, end.y, end.z);
     const direction = finish.clone().sub(start);
-    const length = Math.max(direction.length(), 0.01);
-    const midpoint = start.clone().add(finish).multiplyScalar(0.5);
+    const distance = Math.max(direction.length(), 0.01);
+    direction.normalize();
 
-    tracer.position.copy(midpoint);
-    tracer.scale.set(width, width, length);
-    tracer.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 0, 1),
-      direction.normalize()
-    );
+    const segmentLength = Math.min(3.2, Math.max(0.65, distance * 0.12));
+    const duration = THREE.MathUtils.clamp(distance / 180, 0.055, 0.2);
+
+    tracer.scale.set(width, width, segmentLength);
+    tracer.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
     tracer.material.color.setHex(color);
     tracer.material.opacity = 0.95;
-    tracer.userData.life = 0.09;
+    tracer.userData.start = start;
+    tracer.userData.direction = direction;
+    tracer.userData.distance = distance;
+    tracer.userData.segmentLength = segmentLength;
+    tracer.userData.duration = duration;
+    tracer.userData.elapsed = 0;
+    tracer.userData.life = duration;
+    tracer.position.copy(start).addScaledVector(direction, segmentLength * 0.5);
     tracer.visible = true;
   }
 
@@ -151,10 +157,26 @@ export class EffectsSystem {
 
     for (const tracer of this.tracerPool) {
       if (!tracer.visible) continue;
-      tracer.userData.life -= dt;
-      tracer.material.opacity = Math.max(0, tracer.userData.life / 0.09);
 
-      if (tracer.userData.life <= 0) {
+      tracer.userData.elapsed += dt;
+      tracer.userData.life -= dt;
+      const progress = THREE.MathUtils.clamp(
+        tracer.userData.elapsed / Math.max(0.001, tracer.userData.duration),
+        0,
+        1
+      );
+      const headDistance = THREE.MathUtils.lerp(
+        tracer.userData.segmentLength * 0.5,
+        tracer.userData.distance,
+        progress
+      );
+
+      tracer.position
+        .copy(tracer.userData.start)
+        .addScaledVector(tracer.userData.direction, headDistance);
+      tracer.material.opacity = Math.max(0, 1 - progress) * 0.95;
+
+      if (progress >= 1 || tracer.userData.life <= 0) {
         tracer.visible = false;
       }
     }

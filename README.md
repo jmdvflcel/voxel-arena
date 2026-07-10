@@ -1,4 +1,4 @@
-# Voxel Combat Arena v4
+# Voxel Combat Arena v4.2
 
 A polished multiplayer team-combat prototype designed for an AWS EC2 `t3.micro`.
 
@@ -157,3 +157,14 @@ sudo nginx -t
 ## Scope
 
 This is an advanced classroom/portfolio prototype, not a commercial AAA game. It keeps graphics and effects in the browser while the EC2 instance handles authoritative movement, combat, teams, matches, pickups, and networking.
+
+## Version 4.2 camera and movement update
+
+- Correct standard WASD controls: W forward, S backward, A left, D right.
+- Press `V` to switch instantly between first-person and third-person views.
+- Camera mode can also be selected from the main and pause menus.
+- The local character, username, health bar, animations, and equipped weapon are visible in third person.
+- Other players remain fully visible with usernames, health, team colors, and equipped weapons.
+- Gun recoil now uses damped spring animation.
+- Bullet tracers travel smoothly instead of appearing as static lines.
+- Third-person camera includes wall collision and smooth follow interpolation.
