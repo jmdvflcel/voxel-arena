@@ -3,123 +3,213 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#07111c">
+  <meta name="theme-color" content="#09111f">
   <title>Voxel Combat Arena</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div id="menu">
-    <div class="menu-shell">
-      <section class="hero-panel">
-        <div class="eyebrow">AWS EC2 • REAL-TIME MULTIPLAYER</div>
-        <h1>Voxel Combat Arena</h1>
-        <p class="subtitle">A browser-based arena shooter with melee combat, live usernames, synchronized weapons, and server-validated damage.</p>
-        <div class="weapon-preview">
-          <span>Arc Blade</span><span>Pulse Pistol</span><span>Vector Rifle</span><span>Scatter Cannon</span>
-        </div>
-      </section>
-      <section class="join-panel">
-        <label for="nameInput">Fighter name</label>
-        <input id="nameInput" maxlength="18" placeholder="Enter username" autocomplete="off">
-        <button id="playButton">Deploy to Arena</button>
-        <div class="menu-status"><span id="menuStatusDot"></span><span id="menuStatusText">Connecting to server…</span></div>
-        <div class="controls-grid">
-          <div><kbd>WASD</kbd><span>Move</span></div>
-          <div><kbd>Mouse</kbd><span>Aim</span></div>
-          <div><kbd>Space</kbd><span>Jump</span></div>
-          <div><kbd>Shift</kbd><span>Sprint</span></div>
-          <div><kbd>LMB</kbd><span>Attack</span></div>
-          <div><kbd>RMB</kbd><span>Aim</span></div>
-          <div><kbd>R</kbd><span>Reload</span></div>
-          <div><kbd>1–4</kbd><span>Weapons</span></div>
-          <div><kbd>Tab</kbd><span>Scoreboard</span></div>
-          <div><kbd>Enter</kbd><span>Chat</span></div>
-        </div>
-      </section>
-    </div>
-  </div>
+  <div id="bootScreen">
+    <div class="boot-card">
+      <div class="eyebrow">AWS EC2 MULTIPLAYER</div>
+      <h1>Voxel Combat Arena</h1>
+      <p class="tagline">Fast team combat with blades, pistols, rifles, shotguns, and marksman weapons.</p>
 
-  <div id="topLeft" class="glass-panel">
-    <div class="brand-row"><span class="brand-mark">VCA</span><strong>Voxel Combat Arena</strong></div>
-    <div class="server-grid">
-      <span>AZ</span><b id="az">connecting</b>
-      <span>Instance</span><b id="instance">connecting</b>
-      <span>Players</span><b id="playerCount">1</b>
-      <span>Latency</span><b><span id="ping">0</span> ms</b>
-      <span>FPS</span><b id="fps">0</b>
-    </div>
-  </div>
+      <label>
+        Fighter name
+        <input id="nameInput" maxlength="18" placeholder="Enter username">
+      </label>
 
-  <div id="topRight" class="glass-panel">
-    <div class="stat-box"><span>KILLS</span><strong id="kills">0</strong></div>
-    <div class="stat-box"><span>DEATHS</span><strong id="deaths">0</strong></div>
-    <div class="stat-box"><span>K/D</span><strong id="kd">0.00</strong></div>
-  </div>
+      <div class="menu-grid">
+        <label>
+          Graphics
+          <select id="qualitySelect">
+            <option value="low">Performance</option>
+            <option value="medium" selected>Balanced</option>
+            <option value="high">High</option>
+          </select>
+        </label>
 
-  <div id="crosshair" aria-hidden="true">
-    <i class="north"></i><i class="east"></i><i class="south"></i><i class="west"></i><i class="dot"></i>
-  </div>
-  <div id="hitMarker">×</div>
-  <div id="damageFlash"></div>
-  <div id="muzzleFlash"></div>
+        <label>
+          Field of view
+          <input id="fovInput" type="range" min="65" max="95" value="78">
+          <span id="fovValue">78</span>
+        </label>
 
-  <div id="objectiveBanner">FREE FOR ALL • FIRST TO THE TOP</div>
+        <label>
+          Sensitivity
+          <input id="sensitivityInput" type="range" min="0.5" max="2.2" value="1" step="0.05">
+          <span id="sensitivityValue">1.00</span>
+        </label>
 
-  <div id="killFeed"></div>
-
-  <div id="radar" class="glass-panel">
-    <canvas id="radarCanvas" width="180" height="180"></canvas>
-    <span>RADAR</span>
-  </div>
-
-  <div id="weaponCard" class="glass-panel">
-    <div class="weapon-title-row">
-      <div>
-        <span id="weaponClass">MELEE</span>
-        <strong id="weaponName">Arc Blade</strong>
+        <label>
+          Volume
+          <input id="volumeInput" type="range" min="0" max="1" value="0.45" step="0.05">
+          <span id="volumeValue">45%</span>
+        </label>
       </div>
-      <div id="ammoBlock"><b id="ammoMag">∞</b><span>/</span><em id="ammoReserve">∞</em></div>
+
+      <button id="playButton">Enter Arena</button>
+
+      <div class="control-strip">
+        WASD move · Shift sprint · C crouch/slide · Space jump/mantle · Left click fire/attack · Right click aim/block · R reload · 1–5 weapons · Enter chat · Tab scoreboard · Esc settings
+      </div>
     </div>
-    <div id="reloadTrack"><div id="reloadBar"></div></div>
-    <div class="weapon-hint"><span id="weaponHint">Close-range heavy damage</span><kbd>R</kbd> reload</div>
   </div>
 
-  <div id="vitals" class="glass-panel">
-    <div class="vital-row"><span>HEALTH</span><div class="track"><div id="healthBar"></div></div><b id="healthText">100</b></div>
-    <div class="vital-row"><span>ARMOR</span><div class="track"><div id="armorBar"></div></div><b id="armorText">50</b></div>
+  <div id="pauseMenu" class="hidden">
+    <div class="pause-card">
+      <div class="eyebrow">PAUSED</div>
+      <h2>Settings</h2>
+
+      <label>
+        Graphics
+        <select id="pauseQuality">
+          <option value="low">Performance</option>
+          <option value="medium">Balanced</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+
+      <label>
+        Field of view
+        <input id="pauseFov" type="range" min="65" max="95" value="78">
+      </label>
+
+      <label>
+        Sensitivity
+        <input id="pauseSensitivity" type="range" min="0.5" max="2.2" value="1" step="0.05">
+      </label>
+
+      <label>
+        Volume
+        <input id="pauseVolume" type="range" min="0" max="1" value="0.45" step="0.05">
+      </label>
+
+      <button id="resumeButton">Resume</button>
+    </div>
   </div>
 
-  <div id="weaponBar" class="glass-panel">
-    <button data-weapon="sword" class="active"><span class="slot-number">1</span><b>Arc Blade</b><small>MELEE</small></button>
-    <button data-weapon="pistol"><span class="slot-number">2</span><b>Pulse Pistol</b><small>SEMI-AUTO</small></button>
-    <button data-weapon="rifle"><span class="slot-number">3</span><b>Vector Rifle</b><small>AUTO</small></button>
-    <button data-weapon="shotgun"><span class="slot-number">4</span><b>Scatter Cannon</b><small>SHOTGUN</small></button>
+  <header id="topHud">
+    <section class="team-score red">
+      <span>RED</span>
+      <strong id="redScore">0</strong>
+    </section>
+
+    <section class="match-center">
+      <span id="matchMode">TEAM DEATHMATCH</span>
+      <strong id="matchTimer">05:00</strong>
+      <small id="matchStatus">First to 30</small>
+    </section>
+
+    <section class="team-score blue">
+      <strong id="blueScore">0</strong>
+      <span>BLUE</span>
+    </section>
+  </header>
+
+  <aside id="serverPanel">
+    <strong>SERVER</strong>
+    <div>AZ <span id="azText">connecting</span></div>
+    <div>Instance <span id="instanceText">connecting</span></div>
+    <div>Players <span id="playersText">0</span></div>
+    <div>Ping <span id="pingText">0 ms</span></div>
+    <div>FPS <span id="fpsText">0</span></div>
+    <div>Resolution <span id="resolutionText">100%</span></div>
+  </aside>
+
+  <aside id="radarPanel">
+    <canvas id="radar" width="180" height="180"></canvas>
+  </aside>
+
+  <div id="crosshair">
+    <span class="line top"></span>
+    <span class="line right"></span>
+    <span class="line bottom"></span>
+    <span class="line left"></span>
+    <span class="dot"></span>
   </div>
 
-  <div id="chat" class="glass-panel">
+  <div id="hitMarker">×</div>
+  <div id="headshotMarker">HEADSHOT</div>
+  <div id="damageOverlay"></div>
+  <div id="armorOverlay"></div>
+
+  <section id="playerHud">
+    <div class="bar-group health-group">
+      <div class="bar-label"><span>HEALTH</span><strong id="healthText">100</strong></div>
+      <div class="bar-track"><div id="healthBar" class="bar health"></div></div>
+    </div>
+
+    <div class="bar-group armor-group">
+      <div class="bar-label"><span>ARMOR</span><strong id="armorText">25</strong></div>
+      <div class="bar-track"><div id="armorBar" class="bar armor"></div></div>
+    </div>
+  </section>
+
+  <section id="weaponHud">
+    <div class="weapon-title">
+      <span id="weaponIcon">▰</span>
+      <div>
+        <strong id="weaponName">Vector Rifle</strong>
+        <small id="weaponState">READY</small>
+      </div>
+    </div>
+
+    <div id="ammoDisplay">
+      <strong id="magazineText">30</strong>
+      <span>/</span>
+      <span id="reserveText">150</span>
+    </div>
+
+    <div id="weaponSlots"></div>
+  </section>
+
+  <div id="pickupNotice"></div>
+  <div id="killBanner"></div>
+  <div id="killFeed"></div>
+  <div id="combatText"></div>
+
+  <section id="chatPanel">
     <div id="messages"></div>
-    <input id="chatInput" maxlength="120" placeholder="Press Enter to chat" autocomplete="off">
-  </div>
+    <input id="chatInput" maxlength="120" placeholder="Press Enter to chat">
+  </section>
 
-  <div id="scoreboard" class="glass-panel">
-    <div class="scoreboard-title"><span>LIVE MATCH</span><strong>Scoreboard</strong><small>Hold TAB</small></div>
-    <div class="score-row header"><span>PLAYER</span><span>K</span><span>D</span><span>K/D</span><span>WEAPON</span></div>
-    <div id="scoreRows"></div>
-  </div>
+  <section id="scoreboard" class="hidden">
+    <div class="scoreboard-card">
+      <header>
+        <h2>Scoreboard</h2>
+        <span id="scoreboardTimer">05:00</span>
+      </header>
 
-  <div id="deathScreen">
-    <div class="death-card">
-      <div class="death-label">ELIMINATED</div>
-      <h2 id="deathTitle">You were defeated</h2>
-      <p id="deathSubtitle">Respawning in the arena…</p>
-      <div class="respawn-loader"><div></div></div>
+      <div class="scoreboard-columns">
+        <div>
+          <h3 class="red-title">RED TEAM</h3>
+          <div id="redRows"></div>
+        </div>
+        <div>
+          <h3 class="blue-title">BLUE TEAM</h3>
+          <div id="blueRows"></div>
+        </div>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <div id="connectionBanner">Reconnecting to server…</div>
-  <div id="toast"></div>
+  <section id="deathScreen" class="hidden">
+    <div>
+      <div class="eyebrow">ELIMINATED</div>
+      <h2 id="deathTitle">You were defeated</h2>
+      <p id="respawnText">Respawning in 3...</p>
+    </div>
+  </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script src="/client.js"></script>
+  <section id="roundEnd" class="hidden">
+    <div class="round-card">
+      <div class="eyebrow">ROUND COMPLETE</div>
+      <h2 id="roundWinner">RED TEAM WINS</h2>
+      <p id="roundRestart">Next round begins soon</p>
+    </div>
+  </section>
+
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>
