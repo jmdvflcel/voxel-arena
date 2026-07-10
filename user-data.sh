@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-REPO_URL="https://github.com/YOUR_GITHUB_USERNAME/voxel-arena.git"
+REPO_URL="https://github.com/jmdvflcel/voxel-arena.git"
 APP_DIR="/opt/voxel-arena"
 
 TOKEN=$(curl -sS -X PUT \
