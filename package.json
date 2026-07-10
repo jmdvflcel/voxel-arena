@@ -1,11 +1,12 @@
 {
-  "name": "voxel-blade-arena",
-  "version": "2.0.0",
+  "name": "voxel-combat-arena",
+  "version": "3.0.0",
   "private": true,
-  "description": "Multiplayer browser sword fighting game for AWS EC2",
+  "description": "Advanced multiplayer browser combat game for AWS EC2",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "check": "node --check server.js && node --check public/client.js"
   },
   "engines": {
     "node": ">=18"
