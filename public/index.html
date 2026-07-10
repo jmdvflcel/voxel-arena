@@ -3,22 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Voxel Arena</title>
+  <title>Voxel Blade Arena</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div id="loading">
-    <div class="panel">
-      <h1>Voxel Arena</h1>
-      <p>A multiplayer voxel sandbox running on AWS EC2.</p>
-      <input id="nameInput" maxlength="18" placeholder="Player name">
-      <button id="playButton">Enter World</button>
-      <p class="small">Open the same public IP on another computer to test multiplayer.</p>
+  <div id="menu">
+    <div class="menu-card">
+      <div class="eyebrow">AWS EC2 MULTIPLAYER</div>
+      <h1>Voxel Blade Arena</h1>
+      <p>Fight other players in a live browser-based sword arena.</p>
+      <input id="nameInput" maxlength="18" placeholder="Choose a fighter name">
+      <button id="playButton">Enter Arena</button>
+      <div class="controls">
+        WASD move · Mouse look · Space jump · Shift sprint · Left click attack · Enter chat
+      </div>
     </div>
   </div>
 
   <div id="hud">
-    <strong>Voxel Arena</strong><br>
+    <strong>Voxel Blade Arena</strong><br>
     AZ: <span id="az">connecting</span><br>
     Instance: <span id="instance">connecting</span><br>
     Players: <span id="playerCount">1</span><br>
@@ -26,21 +29,32 @@
     Position: <span id="position">0, 0, 0</span>
   </div>
 
-  <div id="help">
-    WASD move · Mouse look · Space jump · Shift sprint<br>
-    Left click break · Right click place · 1–7 select · Enter chat
+  <div id="score">
+    <div><span>Kills</span><strong id="kills">0</strong></div>
+    <div><span>Deaths</span><strong id="deaths">0</strong></div>
+  </div>
+
+  <div id="healthPanel">
+    <span>HEALTH</span>
+    <div id="healthTrack">
+      <div id="healthBar"></div>
+    </div>
+    <strong id="healthText">100</strong>
   </div>
 
   <div id="crosshair">+</div>
+  <div id="hitMarker">×</div>
+  <div id="damageFlash"></div>
+  <div id="deathScreen">
+    <h2>You were defeated</h2>
+    <p>Respawning...</p>
+  </div>
 
-  <div id="hotbar">
-    <button data-block="grass" class="active">1 Grass</button>
-    <button data-block="dirt">2 Dirt</button>
-    <button data-block="stone">3 Stone</button>
-    <button data-block="wood">4 Wood</button>
-    <button data-block="sand">5 Sand</button>
-    <button data-block="leaves">6 Leaves</button>
-    <button data-block="glass">7 Glass</button>
+  <div id="killFeed"></div>
+
+  <div id="scoreboard">
+    <h3>Scoreboard</h3>
+    <div id="scoreRows"></div>
   </div>
 
   <div id="chat">

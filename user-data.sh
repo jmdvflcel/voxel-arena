@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-REPO_URL="https://github.com/jmdvflcel/voxel-arena.git"
+REPO_URL="https://github.com/YOUR_GITHUB_USERNAME/voxel-arena.git"
 APP_DIR="/opt/voxel-arena"
 
 TOKEN=$(curl -sS -X PUT \
@@ -33,7 +33,7 @@ ENV
 
 cat > /etc/systemd/system/voxel-arena.service <<'SERVICE'
 [Unit]
-Description=Voxel Arena Node Server
+Description=Voxel Blade Arena Node Server
 After=network-online.target
 Wants=network-online.target
 

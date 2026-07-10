@@ -1,8 +1,8 @@
 {
-  "name": "voxel-arena",
-  "version": "1.0.0",
+  "name": "voxel-blade-arena",
+  "version": "2.0.0",
   "private": true,
-  "description": "Milestone 1 multiplayer voxel sandbox for AWS EC2",
+  "description": "Multiplayer browser sword fighting game for AWS EC2",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
