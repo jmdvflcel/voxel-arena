@@ -1,5 +1,5 @@
 import * as THREE from "/vendor/three.module.js";
-import { COLLIDERS, MOVEMENT, PICKUP_COLORS } from "./config.js";
+import { COLLIDERS, MOVEMENT, PICKUP_COLORS, WEAPON_INFO, POWER_INFO } from "./config.js";
 
 const CHUNK_SIZE = 12;
 
@@ -328,6 +328,39 @@ export function supportHeight(x, z, currentY) {
   return support;
 }
 
+function createPickupLabel(pickup, color) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 320;
+  canvas.height = 72;
+  const context = canvas.getContext("2d");
+  const text = pickup.type === "weapon"
+    ? WEAPON_INFO[pickup.weapon]?.name || pickup.weapon
+    : pickup.type === "power"
+      ? POWER_INFO[pickup.power]?.name || pickup.power
+      : pickup.type.toUpperCase();
+
+  context.fillStyle = "rgba(4,8,14,.72)";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = `#${color.toString(16).padStart(6, "0")}`;
+  context.lineWidth = 4;
+  context.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+  context.fillStyle = "white";
+  context.font = "bold 27px ui-monospace,monospace";
+  context.textAlign = "center";
+  context.fillText(text, canvas.width / 2, 44);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false
+  }));
+  sprite.scale.set(2.8, 0.63, 1);
+  sprite.position.y = 1.25;
+  return sprite;
+}
+
 export class PickupRenderer {
   constructor(scene, quality) {
     this.scene = scene;
@@ -337,7 +370,7 @@ export class PickupRenderer {
   }
 
   create(pickup) {
-    const colorKey = pickup.type === "weapon" ? pickup.weapon : pickup.type;
+    const colorKey = pickup.type === "weapon" ? pickup.weapon : pickup.type === "power" ? pickup.power : pickup.type;
     const color = PICKUP_COLORS[colorKey] || 0xffffff;
     const material = new THREE.MeshStandardMaterial({
       color,
@@ -348,7 +381,10 @@ export class PickupRenderer {
     });
 
     const group = new THREE.Group();
-    const core = new THREE.Mesh(this.geometry, material);
+    const coreGeometry = pickup.type === "power"
+      ? new THREE.IcosahedronGeometry(0.48, 1)
+      : this.geometry;
+    const core = new THREE.Mesh(coreGeometry, material);
     core.castShadow = this.quality.shadows;
 
     const ring = new THREE.Mesh(
@@ -364,11 +400,14 @@ export class PickupRenderer {
     const light = new THREE.PointLight(color, 1.7, 7, 2);
     light.position.y = 0.45;
 
-    group.add(core, ring, light);
+    const label = createPickupLabel(pickup, color);
+    group.add(core, ring, light, label);
     group.position.set(pickup.x, pickup.y, pickup.z);
     group.visible = pickup.active;
     group.userData.baseY = pickup.y;
     group.userData.phase = Math.random() * Math.PI * 2;
+    group.userData.type = pickup.type;
+    group.userData.power = pickup.power || null;
     this.scene.add(group);
     this.items.set(pickup.id, group);
   }
@@ -390,7 +429,11 @@ export class PickupRenderer {
       group.rotation.y = time * 1.2 + group.userData.phase;
       group.position.y = group.userData.baseY + Math.sin(time * 2 + group.userData.phase) * 0.14;
       const ring = group.children[1];
-      ring.rotation.z = time * 0.8;
+      ring.rotation.z = time * (group.userData.type === "power" ? 1.7 : 0.8);
+      if (group.userData.type === "power") {
+        const pulse = 1 + Math.sin(time * 4 + group.userData.phase) * 0.1;
+        group.children[0].scale.setScalar(pulse);
+      }
     }
   }
 }

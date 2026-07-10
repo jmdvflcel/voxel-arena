@@ -105,15 +105,27 @@ export class AudioSystem {
     if (name === "pistol") {
       this.noise({ duration: 0.07, gain: 0.16, cutoff: 7200 });
       this.tone({ frequency: 150, endFrequency: 80, duration: 0.08, type: "square", gain: 0.1 });
+    } else if (name === "smg") {
+      this.noise({ duration: 0.035, gain: 0.1, cutoff: 9800 });
+      this.tone({ frequency: 280, endFrequency: 120, duration: 0.04, type: "square", gain: 0.055 });
     } else if (name === "rifle") {
       this.noise({ duration: 0.05, gain: 0.13, cutoff: 8800 });
       this.tone({ frequency: 220, endFrequency: 105, duration: 0.055, type: "sawtooth", gain: 0.07 });
+    } else if (name === "burst") {
+      this.noise({ duration: 0.075, gain: 0.14, cutoff: 9000 });
+      this.tone({ frequency: 340, endFrequency: 130, duration: 0.08, type: "square", gain: 0.08 });
     } else if (name === "shotgun") {
       this.noise({ duration: 0.14, gain: 0.24, cutoff: 5800 });
       this.tone({ frequency: 115, endFrequency: 48, duration: 0.14, type: "square", gain: 0.15 });
+    } else if (name === "lmg") {
+      this.noise({ duration: 0.075, gain: 0.18, cutoff: 7200 });
+      this.tone({ frequency: 160, endFrequency: 75, duration: 0.08, type: "sawtooth", gain: 0.1 });
     } else if (name === "marksman") {
       this.noise({ duration: 0.11, gain: 0.18, cutoff: 8000 });
       this.tone({ frequency: 260, endFrequency: 70, duration: 0.12, type: "sawtooth", gain: 0.12 });
+    } else if (name === "railgun") {
+      this.tone({ frequency: 980, endFrequency: 115, duration: 0.22, type: "sawtooth", gain: 0.14 });
+      this.noise({ duration: 0.15, gain: 0.2, cutoff: 9600 });
     } else if (name === "sword") {
       this.tone({ frequency: 530, endFrequency: 180, duration: 0.18, type: "sine", gain: 0.11 });
       this.noise({ duration: 0.12, gain: 0.05, cutoff: 4000 });
@@ -160,6 +172,25 @@ export class AudioSystem {
 
   playPickup() {
     this.tone({ frequency: 520, endFrequency: 980, duration: 0.2, type: "sine", gain: 0.08 });
+  }
+
+  playPower(name) {
+    const frequencies = {
+      speed: 720,
+      dash: 980,
+      overshield: 430,
+      rapid: 850,
+      damage: 310,
+      regen: 610,
+      jump: 760
+    };
+    const frequency = frequencies[name] || 620;
+    this.tone({ frequency, endFrequency: frequency * 1.75, duration: 0.2, type: "triangle", gain: 0.09 });
+  }
+
+  playDash() {
+    this.noise({ duration: 0.09, gain: 0.11, cutoff: 8400 });
+    this.tone({ frequency: 900, endFrequency: 180, duration: 0.11, type: "sine", gain: 0.08 });
   }
 
   playFootstep(speed, surface = "stone") {

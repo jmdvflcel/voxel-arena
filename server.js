@@ -10,88 +10,93 @@ const PORT = Number(process.env.PORT || 3000);
 const EC2_AZ = process.env.EC2_AZ || "local";
 const INSTANCE_ID = process.env.INSTANCE_ID || "local";
 
-const TICK_RATE = 20;
-const SNAPSHOT_RATE = 10;
+const TICK_RATE = 30;
+const SNAPSHOT_RATE = 15;
 const TICK_MS = 1000 / TICK_RATE;
 const SNAPSHOT_EVERY = TICK_RATE / SNAPSHOT_RATE;
-const INTEREST_RADIUS = 58;
+const INTEREST_RADIUS = 64;
 const MATCH_LENGTH_MS = 5 * 60 * 1000;
 const ROUND_BREAK_MS = 9000;
 const SCORE_LIMIT = 30;
 const RESPAWN_MS = 3000;
 const SPAWN_PROTECTION_MS = 1600;
-const PLAYER_RADIUS = 0.34;
+const PLAYER_RADIUS = 0.33;
 const STAND_HEIGHT = 1.8;
 const CROUCH_HEIGHT = 1.25;
 const GRAVITY = 22;
-const WALK_SPEED = 5.1;
-const SPRINT_SPEED = 8.0;
-const CROUCH_SPEED = 2.8;
-const SLIDE_SPEED = 10.5;
-const MOVE_ACCEL = 31;
-const AIR_ACCEL = 8;
-const GROUND_FRICTION = 12;
-const AIR_FRICTION = 1.2;
-const JUMP_SPEED = 7.7;
+const WALK_SPEED = 5.25;
+const SPRINT_SPEED = 8.15;
+const CROUCH_SPEED = 3.05;
+const SLIDE_SPEED = 10.8;
+const MOVE_ACCEL = 38;
+const AIR_ACCEL = 10;
+const GROUND_FRICTION = 13.5;
+const AIR_FRICTION = 1.05;
+const JUMP_SPEED = 7.75;
 const ARENA_RADIUS = 29;
+const DASH_SPEED = 18;
+const DASH_DURATION_MS = 165;
+const DASH_COOLDOWN_MS = 1600;
+const POWER_SPEED_MULTIPLIER = 1.35;
+const POWER_RAPID_MULTIPLIER = 0.70;
+const POWER_DAMAGE_MULTIPLIER = 1.25;
+const POWER_JUMP_MULTIPLIER = 1.28;
+const OVERSHIELD_CAP = 200;
+const REGEN_PER_SECOND = 12;
+const REGEN_DELAY_MS = 2200;
 
 const WEAPONS = {
   sword: {
     type: "melee",
-    cooldown: 420,
-    comboReset: 900,
-    ranges: [2.7, 2.85, 3.0],
-    damages: [27, 31, 39],
-    arcs: [0.48, 0.42, 0.35]
+    cooldown: 390,
+    comboReset: 850,
+    ranges: [2.75, 2.9, 3.1],
+    damages: [27, 31, 40],
+    arcs: [0.48, 0.42, 0.34]
   },
   pistol: {
-    type: "hitscan",
-    damage: 28,
-    headMultiplier: 1.6,
-    cooldown: 310,
-    magazine: 12,
-    reserve: 60,
-    reload: 1450,
-    range: 72,
-    spread: 0.008,
-    pellets: 1
+    type: "hitscan", damage: 28, headMultiplier: 1.65, cooldown: 280,
+    magazine: 12, reserve: 72, reload: 1350, range: 76, spread: 0.007, pellets: 1
+  },
+  smg: {
+    type: "hitscan", damage: 9, headMultiplier: 1.35, cooldown: 68,
+    magazine: 36, reserve: 180, reload: 1750, range: 58, spread: 0.026, pellets: 1
   },
   rifle: {
-    type: "hitscan",
-    damage: 14,
-    headMultiplier: 1.45,
-    cooldown: 92,
-    magazine: 30,
-    reserve: 150,
-    reload: 2100,
-    range: 85,
-    spread: 0.018,
-    pellets: 1
+    type: "hitscan", damage: 14, headMultiplier: 1.48, cooldown: 94,
+    magazine: 30, reserve: 150, reload: 2000, range: 88, spread: 0.016, pellets: 1
+  },
+  burst: {
+    type: "hitscan", damage: 13, headMultiplier: 1.48, cooldown: 390,
+    magazine: 27, reserve: 135, reload: 2050, range: 92, spread: 0.012, pellets: 3,
+    ammoPerShot: 3
   },
   shotgun: {
-    type: "hitscan",
-    damage: 10,
-    headMultiplier: 1.15,
-    cooldown: 840,
-    magazine: 6,
-    reserve: 36,
-    reload: 2500,
-    range: 34,
-    spread: 0.085,
-    pellets: 9
+    type: "hitscan", damage: 10, headMultiplier: 1.18, cooldown: 820,
+    magazine: 6, reserve: 42, reload: 2350, range: 36, spread: 0.082, pellets: 10
+  },
+  lmg: {
+    type: "hitscan", damage: 17, headMultiplier: 1.34, cooldown: 118,
+    magazine: 60, reserve: 240, reload: 3200, range: 90, spread: 0.024, pellets: 1
   },
   marksman: {
-    type: "hitscan",
-    damage: 62,
-    headMultiplier: 1.7,
-    cooldown: 920,
-    magazine: 5,
-    reserve: 25,
-    reload: 2400,
-    range: 120,
-    spread: 0.003,
-    pellets: 1
+    type: "hitscan", damage: 62, headMultiplier: 1.72, cooldown: 900,
+    magazine: 5, reserve: 30, reload: 2250, range: 125, spread: 0.0025, pellets: 1
+  },
+  railgun: {
+    type: "hitscan", damage: 88, headMultiplier: 1.45, cooldown: 1450,
+    magazine: 3, reserve: 15, reload: 2850, range: 145, spread: 0.0005, pellets: 1
   }
+};
+
+const POWERUPS = {
+  speed: { duration: 12000 },
+  dash: { duration: 18000 },
+  overshield: { duration: 0 },
+  rapid: { duration: 11000 },
+  damage: { duration: 10000 },
+  regen: { duration: 14000 },
+  jump: { duration: 14000 }
 };
 
 const COLLIDERS = [
@@ -128,12 +133,25 @@ const SPAWNS = {
 };
 
 const PICKUP_TEMPLATES = [
-  { id: "shotgun-a", type: "weapon", weapon: "shotgun", x: 0, y: 2.7, z: 0, respawn: 22000 },
-  { id: "marksman-a", type: "weapon", weapon: "marksman", x: 0, y: 3.7, z: -14, respawn: 26000 },
+  { id: "smg-west", type: "weapon", weapon: "smg", x: -11, y: 1.5, z: 8, respawn: 15000 },
+  { id: "burst-east", type: "weapon", weapon: "burst", x: 11, y: 1.5, z: -8, respawn: 18000 },
+  { id: "shotgun-center", type: "weapon", weapon: "shotgun", x: 0, y: 2.7, z: 0, respawn: 22000 },
+  { id: "lmg-south", type: "weapon", weapon: "lmg", x: 0, y: 1.4, z: -20, respawn: 24000 },
+  { id: "marksman-north", type: "weapon", weapon: "marksman", x: 0, y: 3.7, z: 14, respawn: 26000 },
+  { id: "railgun-top", type: "weapon", weapon: "railgun", x: 0, y: 3.7, z: -14, respawn: 32000 },
   { id: "armor-red", type: "armor", amount: 55, x: -14, y: 3.6, z: 0, respawn: 18000 },
   { id: "armor-blue", type: "armor", amount: 55, x: 14, y: 3.6, z: 0, respawn: 18000 },
-  { id: "health-north", type: "health", amount: 45, x: 0, y: 3.6, z: 14, respawn: 16000 },
-  { id: "ammo-south", type: "ammo", amount: 0.5, x: 0, y: 1.3, z: -20, respawn: 14000 }
+  { id: "health-northwest", type: "health", amount: 45, x: -8, y: 1.5, z: 14, respawn: 16000 },
+  { id: "health-southeast", type: "health", amount: 45, x: 8, y: 1.5, z: -14, respawn: 16000 },
+  { id: "ammo-northeast", type: "ammo", amount: 0.5, x: 16, y: 1.3, z: 10, respawn: 14000 },
+  { id: "ammo-southwest", type: "ammo", amount: 0.5, x: -16, y: 1.3, z: -10, respawn: 14000 },
+  { id: "power-speed", type: "power", power: "speed", x: -19, y: 1.4, z: 0, respawn: 24000 },
+  { id: "power-dash", type: "power", power: "dash", x: 19, y: 1.4, z: 0, respawn: 24000 },
+  { id: "power-shield", type: "power", power: "overshield", x: 0, y: 3.5, z: 0, respawn: 28000 },
+  { id: "power-rapid", type: "power", power: "rapid", x: -10, y: 1.5, z: -15, respawn: 26000 },
+  { id: "power-damage", type: "power", power: "damage", x: 10, y: 1.5, z: 15, respawn: 26000 },
+  { id: "power-regen", type: "power", power: "regen", x: -10, y: 1.5, z: 15, respawn: 26000 },
+  { id: "power-jump", type: "power", power: "jump", x: 10, y: 1.5, z: -15, respawn: 26000 }
 ];
 
 const app = express();
@@ -159,7 +177,7 @@ app.get("/api/status", (_req, res) => {
   res.json({
     status: "online",
     app: "Voxel Combat Arena",
-    version: "4.2.0",
+    version: "5.0.0",
     players: clients.size,
     availabilityZone: EC2_AZ,
     instanceId: INSTANCE_ID,
@@ -253,6 +271,33 @@ function makeAmmo() {
   return result;
 }
 
+function makePowers() {
+  return {
+    speed: 0,
+    dash: 0,
+    rapid: 0,
+    damage: 0,
+    regen: 0,
+    jump: 0
+  };
+}
+
+function activePower(player, name, now = Date.now()) {
+  return Number(player.powers?.[name] || 0) > now;
+}
+
+function publicPowers(player) {
+  return {
+    speed: player.powers.speed,
+    dash: player.powers.dash,
+    rapid: player.powers.rapid,
+    damage: player.powers.damage,
+    regen: player.powers.regen,
+    jump: player.powers.jump,
+    dashReadyAt: player.dashReadyAt
+  };
+}
+
 function publicPlayer(player) {
   return {
     id: player.id,
@@ -279,6 +324,7 @@ function publicPlayer(player) {
     sliding: Date.now() < player.slideUntil,
     crouching: player.input.crouch,
     reloading: player.reload ? player.reload.weapon : null,
+    powers: publicPowers(player),
     ack: player.lastInputSeq
   };
 }
@@ -288,6 +334,8 @@ function pickupPublic(pickup) {
     id: pickup.id,
     type: pickup.type,
     weapon: pickup.weapon || null,
+    power: pickup.power || null,
+    amount: pickup.amount || 0,
     x: pickup.x,
     y: pickup.y,
     z: pickup.z,
@@ -357,10 +405,16 @@ function simulateMovement(player, dt, now) {
   const stunned = now < player.stunnedUntil;
   const height = input.crouch ? CROUCH_HEIGHT : STAND_HEIGHT;
   const support = supportHeight(player.x, player.z, player.y);
-  const grounded = player.y <= support + 0.035 && player.vy <= 0.2;
+  const grounded = player.y <= support + 0.04 && player.vy <= 0.3;
+  if (grounded) player.lastGroundedAt = now;
+  if (input.jump && !player.previousJump) player.jumpRequestedAt = now;
 
-  if (input.jump && !player.previousJump && grounded && !stunned) {
-    player.vy = JUMP_SPEED;
+  const jumpBuffered = now - player.jumpRequestedAt <= 130;
+  const coyoteGrounded = now - player.lastGroundedAt <= 110;
+  if (jumpBuffered && coyoteGrounded && !stunned) {
+    player.vy = JUMP_SPEED * (activePower(player, "jump", now) ? POWER_JUMP_MULTIPLIER : 1);
+    player.jumpRequestedAt = -Infinity;
+    player.lastGroundedAt = -Infinity;
   }
 
   const currentHorizontalSpeed = vectorLength(player.vx, player.vz);
@@ -399,12 +453,16 @@ function simulateMovement(player, dt, now) {
   let maxSpeed = WALK_SPEED;
   if (input.crouch) maxSpeed = CROUCH_SPEED;
   if (input.sprint && !input.crouch) maxSpeed = SPRINT_SPEED;
+  if (activePower(player, "speed", now)) maxSpeed *= POWER_SPEED_MULTIPLIER;
   if (player.blocking) maxSpeed *= 0.55;
   if (stunned) maxSpeed = 0;
 
-  const accel = grounded ? MOVE_ACCEL : AIR_ACCEL;
+  const accel = (grounded ? MOVE_ACCEL : AIR_ACCEL) * (activePower(player, "jump", now) ? 1.18 : 1);
 
-  if (sliding) {
+  if (now < player.dashUntil) {
+    player.vx = player.dashDirection.x * DASH_SPEED;
+    player.vz = player.dashDirection.z * DASH_SPEED;
+  } else if (sliding) {
     const slideLength = Math.hypot(player.vx, player.vz) || 1;
     player.vx = player.vx / slideLength * Math.max(SLIDE_SPEED * 0.72, currentHorizontalSpeed);
     player.vz = player.vz / slideLength * Math.max(SLIDE_SPEED * 0.72, currentHorizontalSpeed);
@@ -452,8 +510,13 @@ function simulateMovement(player, dt, now) {
     else player.vz = 0;
   };
 
-  tryMoveAxis("x", player.vx * dt);
-  tryMoveAxis("z", player.vz * dt);
+  const moveX = player.vx * dt;
+  const moveZ = player.vz * dt;
+  const substeps = Math.max(1, Math.ceil(Math.hypot(moveX, moveZ) / 0.22));
+  for (let step = 0; step < substeps; step++) {
+    tryMoveAxis("x", moveX / substeps);
+    tryMoveAxis("z", moveZ / substeps);
+  }
 
   const distance = Math.hypot(player.x, player.z);
   const boundary = ARENA_RADIUS - PLAYER_RADIUS;
@@ -484,7 +547,8 @@ function simulateMovement(player, dt, now) {
     t: now,
     x: player.x,
     y: player.y,
-    z: player.z
+    z: player.z,
+    crouching: player.input.crouch
   });
 
   while (player.history.length && now - player.history[0].t > 1200) {
@@ -586,21 +650,81 @@ function nearestWallDistance(origin, direction, maxRange) {
 
 function historyPosition(player, targetTime) {
   if (!player.history.length) {
-    return { x: player.x, y: player.y, z: player.z };
+    return { x: player.x, y: player.y, z: player.z, crouching: player.input.crouch };
   }
 
-  let best = player.history[0];
-  let bestDelta = Math.abs(best.t - targetTime);
+  if (targetTime <= player.history[0].t) return player.history[0];
+  const last = player.history[player.history.length - 1];
+  if (targetTime >= last.t) return last;
 
-  for (const sample of player.history) {
-    const delta = Math.abs(sample.t - targetTime);
-    if (delta < bestDelta) {
-      best = sample;
-      bestDelta = delta;
+  for (let index = 0; index < player.history.length - 1; index++) {
+    const older = player.history[index];
+    const newer = player.history[index + 1];
+    if (older.t <= targetTime && newer.t >= targetTime) {
+      const span = Math.max(1, newer.t - older.t);
+      const alpha = clamp((targetTime - older.t) / span, 0, 1);
+      return {
+        x: older.x + (newer.x - older.x) * alpha,
+        y: older.y + (newer.y - older.y) * alpha,
+        z: older.z + (newer.z - older.z) * alpha,
+        crouching: alpha < 0.5 ? older.crouching : newer.crouching
+      };
     }
   }
 
-  return best;
+  return last;
+}
+
+function playerHitZones(player, position) {
+  const crouching = Boolean(position.crouching);
+  const baseY = position.y;
+  const headBottom = baseY + (crouching ? 0.95 : 1.42);
+  const headTop = baseY + (crouching ? 1.38 : 1.88);
+  const torsoTop = baseY + (crouching ? 1.02 : 1.45);
+
+  return [
+    {
+      zone: "head",
+      multiplier: null,
+      box: {
+        minX: position.x - 0.245, maxX: position.x + 0.245,
+        minY: headBottom, maxY: headTop,
+        minZ: position.z - 0.245, maxZ: position.z + 0.245
+      }
+    },
+    {
+      zone: "torso",
+      multiplier: 1,
+      box: {
+        minX: position.x - 0.34, maxX: position.x + 0.34,
+        minY: baseY + 0.55, maxY: torsoTop,
+        minZ: position.z - 0.25, maxZ: position.z + 0.25
+      }
+    },
+    {
+      zone: "legs",
+      multiplier: 0.78,
+      box: {
+        minX: position.x - 0.29, maxX: position.x + 0.29,
+        minY: baseY + 0.02, maxY: baseY + 0.65,
+        minZ: position.z - 0.24, maxZ: position.z + 0.24
+      }
+    }
+  ];
+}
+
+function nearestPlayerHit(origin, direction, target, position, weapon, limit) {
+  let nearest = null;
+  for (const zone of playerHitZones(target, position)) {
+    const distance = rayAabb(origin, direction, zone.box);
+    if (distance >= limit || (nearest && distance >= nearest.distance)) continue;
+    nearest = {
+      distance,
+      zone: zone.zone,
+      multiplier: zone.zone === "head" ? weapon.headMultiplier : zone.multiplier
+    };
+  }
+  return nearest;
 }
 
 function directionFromAngles(yaw, pitch) {
@@ -674,6 +798,11 @@ function applyDamage(attacker, target, amount, meta = {}) {
     }
   }
 
+  if (activePower(attacker, "damage", now)) {
+    amount *= POWER_DAMAGE_MULTIPLIER;
+  }
+
+  target.lastDamagedAt = now;
   const armorAbsorb = Math.min(target.armor, amount * 0.65);
   target.armor -= armorAbsorb;
   const healthDamage = amount - armorAbsorb;
@@ -776,13 +905,20 @@ function respawnPlayer(player, immediate = false) {
     blocking: false,
     reload: null,
     slideUntil: 0,
-    stunnedUntil: 0
+    stunnedUntil: 0,
+    dashUntil: 0,
+    dashReadyAt: 0,
+    dashDirection: { x: 0, z: 0 },
+    powers: makePowers(),
+    lastDamagedAt: 0,
+    lastGroundedAt: Date.now(),
+    jumpRequestedAt: -Infinity
   });
 
   player.weapon = "rifle";
-  player.owned = new Set(["sword", "pistol", "rifle"]);
+  player.owned = new Set(["sword", "pistol", "smg", "rifle"]);
   player.ammo = makeAmmo();
-  player.history = [{ t: Date.now(), x: player.x, y: player.y, z: player.z }];
+  player.history = [{ t: Date.now(), x: player.x, y: player.y, z: player.z, crouching: false }];
 
   broadcast({
     type: "respawn",
@@ -886,8 +1022,14 @@ function handleHitscan(attacker, weaponName, message) {
     return;
   }
 
-  ammo.magazine -= 1;
-  attacker.nextAttackAt = now + weapon.cooldown;
+  const ammoCost = weapon.ammoPerShot || 1;
+  if (ammo.magazine < ammoCost) {
+    send(attacker.ws, { type: "empty", weapon: weaponName });
+    return;
+  }
+  ammo.magazine -= ammoCost;
+  const cooldownMultiplier = activePower(attacker, "rapid", now) ? POWER_RAPID_MULTIPLIER : 1;
+  attacker.nextAttackAt = now + weapon.cooldown * cooldownMultiplier;
 
   const latency = clamp(Number(message.latency) || 0, 0, 240);
   const rewindTime = now - latency * 0.5;
@@ -909,34 +1051,20 @@ function handleHitscan(attacker, weaponName, message) {
     let nearestHit = null;
     let nearestDistance = wallDistance;
     let headshot = false;
+    let zoneMultiplier = 1;
 
     for (const client of clients.values()) {
       const target = client.player;
       if (!validTarget(attacker, target, now)) continue;
 
       const position = historyPosition(target, rewindTime);
-      const headCenter = {
-        x: position.x,
-        y: position.y + 1.55,
-        z: position.z
-      };
-      const bodyCenter = {
-        x: position.x,
-        y: position.y + 0.88,
-        z: position.z
-      };
+      const hit = nearestPlayerHit(origin, direction, target, position, weapon, nearestDistance);
 
-      const headDistance = raySphere(origin, direction, headCenter, 0.27);
-      const bodyDistance = raySphere(origin, direction, bodyCenter, 0.52);
-
-      if (headDistance < nearestDistance) {
+      if (hit) {
         nearestHit = target;
-        nearestDistance = headDistance;
-        headshot = true;
-      } else if (bodyDistance < nearestDistance) {
-        nearestHit = target;
-        nearestDistance = bodyDistance;
-        headshot = false;
+        nearestDistance = hit.distance;
+        headshot = hit.zone === "head";
+        zoneMultiplier = hit.multiplier;
       }
     }
 
@@ -955,7 +1083,7 @@ function handleHitscan(attacker, weaponName, message) {
         headshot: false
       };
 
-      existing.damage += weapon.damage * (headshot ? weapon.headMultiplier : 1);
+      existing.damage += weapon.damage * zoneMultiplier;
       existing.headshot = existing.headshot || headshot;
       damageByTarget.set(nearestHit.id, existing);
     }
@@ -1147,6 +1275,16 @@ function checkPickups(now) {
           );
         }
         collected = true;
+      } else if (pickup.type === "power" && POWERUPS[pickup.power]) {
+        if (pickup.power === "overshield") {
+          player.armor = Math.min(OVERSHIELD_CAP, player.armor + 100);
+        } else {
+          player.powers[pickup.power] = now + POWERUPS[pickup.power].duration;
+          if (pickup.power === "dash") {
+            player.dashReadyAt = now;
+          }
+        }
+        collected = true;
       }
 
       if (!collected) continue;
@@ -1170,6 +1308,62 @@ function checkPickups(now) {
       break;
     }
   }
+}
+
+function updatePowers(now, dt) {
+  for (const client of clients.values()) {
+    const player = client.player;
+    if (!player.alive) continue;
+
+    if (activePower(player, "regen", now) &&
+        now - player.lastDamagedAt >= REGEN_DELAY_MS &&
+        player.health < 100) {
+      const before = player.health;
+      player.health = Math.min(100, player.health + REGEN_PER_SECOND * dt);
+      if (Math.floor(before) !== Math.floor(player.health)) {
+        send(player.ws, {
+          type: "vitals",
+          health: Math.round(player.health),
+          armor: Math.round(player.armor)
+        });
+      }
+    }
+  }
+}
+
+function handleAbility(player, ability) {
+  const now = Date.now();
+  if (ability !== "dash" || !player.alive || round.status !== "playing") return;
+  if (!activePower(player, "dash", now) || now < player.dashReadyAt || player.stunnedUntil > now) return;
+
+  let x = Number(player.input.right) - Number(player.input.left);
+  let z = Number(player.input.forward) - Number(player.input.backward);
+  if (Math.hypot(x, z) < 0.1) z = 1;
+
+  const length = Math.hypot(x, z) || 1;
+  x /= length;
+  z /= length;
+  const sin = Math.sin(player.yaw);
+  const cos = Math.cos(player.yaw);
+  const worldX = x * cos - z * sin;
+  const worldZ = -x * sin - z * cos;
+
+  player.dashDirection = { x: worldX, z: worldZ };
+  player.dashUntil = now + DASH_DURATION_MS;
+  player.dashReadyAt = now + DASH_COOLDOWN_MS;
+  player.vx = worldX * DASH_SPEED;
+  player.vz = worldZ * DASH_SPEED;
+
+  broadcast({
+    type: "ability",
+    id: player.id,
+    ability: "dash",
+    x: player.x,
+    y: player.y,
+    z: player.z,
+    direction: player.dashDirection,
+    dashReadyAt: player.dashReadyAt
+  });
 }
 
 function updateRespawns(now) {
@@ -1211,6 +1405,7 @@ function runTick() {
   }
 
   checkPickups(now);
+  updatePowers(now, dt);
   updateRespawns(now);
   checkRound(now);
 
@@ -1250,7 +1445,7 @@ wss.on("connection", (ws) => {
     invulnerableUntil: Date.now() + SPAWN_PROTECTION_MS,
     stunnedUntil: 0,
     weapon: "rifle",
-    owned: new Set(["sword", "pistol", "rifle"]),
+    owned: new Set(["sword", "pistol", "smg", "rifle"]),
     ammo: makeAmmo(),
     reload: null,
     nextAttackAt: 0,
@@ -1259,6 +1454,13 @@ wss.on("connection", (ws) => {
     blocking: false,
     blockStartedAt: 0,
     slideUntil: 0,
+    dashUntil: 0,
+    dashReadyAt: 0,
+    dashDirection: { x: 0, z: 0 },
+    powers: makePowers(),
+    lastDamagedAt: 0,
+    lastGroundedAt: Date.now(),
+    jumpRequestedAt: -Infinity,
     lastInputSeq: 0,
     previousJump: false,
     previousCrouch: false,
@@ -1271,7 +1473,7 @@ wss.on("connection", (ws) => {
       sprint: false,
       crouch: false
     },
-    history: [],
+    history: [{ t: Date.now(), x: spawn.x, y: spawn.y, z: spawn.z, crouching: false }],
     damageContributors: new Map()
   };
 
@@ -1288,6 +1490,7 @@ wss.on("connection", (ws) => {
     player: publicPlayer(player),
     ammo: player.ammo,
     weapons: WEAPONS,
+    powerups: POWERUPS,
     pickups: pickups.map(pickupPublic),
     round: roundPublic(),
     availabilityZone: EC2_AZ,
@@ -1372,6 +1575,11 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if (message.type === "ability") {
+      handleAbility(player, String(message.ability || ""));
+      return;
+    }
+
     if (message.type === "switch_weapon") {
       switchWeapon(player, String(message.weapon || ""));
       return;
@@ -1423,7 +1631,7 @@ wss.on("connection", (ws) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Voxel Combat Arena v4.2 listening on port ${PORT}`);
+  console.log(`Voxel Combat Arena v5 listening on port ${PORT}`);
   console.log(`EC2 AZ: ${EC2_AZ}`);
   console.log(`Instance: ${INSTANCE_ID}`);
 });

@@ -7,7 +7,7 @@ REPO_URL="https://github.com/jmdvflcel/voxel-arena.git"
 APP_DIR="/opt/voxel-arena"
 APP_USER="ec2-user"
 
-echo "=== Voxel Combat Arena v4.2 deployment starting ==="
+echo "=== Voxel Combat Arena v5 deployment starting ==="
 
 TOKEN=$(curl -fsS -X PUT \
   -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" \
@@ -99,7 +99,7 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
 cat > /etc/systemd/system/voxel-arena.service <<'SERVICE'
 [Unit]
-Description=Voxel Combat Arena v4.2 Multiplayer Server
+Description=Voxel Combat Arena v5 Multiplayer Server
 After=network-online.target
 Wants=network-online.target
 
@@ -226,5 +226,5 @@ fi
 systemctl --no-pager --full status voxel-arena || true
 systemctl --no-pager --full status nginx || true
 
-echo "=== Voxel Combat Arena v4.2 deployment complete ==="
+echo "=== Voxel Combat Arena v5 deployment complete ==="
 echo "Open http://YOUR-EC2-PUBLIC-IP after allowing inbound TCP port 80."

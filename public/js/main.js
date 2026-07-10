@@ -3,6 +3,7 @@ import {
   QUALITY_PRESETS,
   WEAPON_INFO,
   WEAPON_ORDER,
+  POWER_INFO,
   MOVEMENT
 } from "./config.js";
 import {
@@ -126,6 +127,19 @@ const local = {
   blocking: false,
   reloading: false,
   crouching: false,
+  powers: {
+    speed: 0,
+    dash: 0,
+    rapid: 0,
+    damage: 0,
+    regen: 0,
+    jump: 0,
+    dashReadyAt: 0
+  },
+  dashUntil: 0,
+  dashDirection: { x: 0, z: 0 },
+  jumpPressedAt: -Infinity,
+  lastGroundedAt: performance.now(),
   slideUntil: 0,
   grounded: true,
   correction: new THREE.Vector3(),
@@ -171,6 +185,10 @@ let lastGrounded = true;
 let lastFootstepDust = 0;
 let deathAt = 0;
 let currentMatchTime = "05:00";
+let movementAccumulator = 0;
+const MOVEMENT_STEP = 1 / 60;
+let serverPowerups = {};
+let lastPowerHudSignature = "";
 
 const radarContext = $("radar").getContext("2d");
 
@@ -309,12 +327,13 @@ function updateWeaponHud() {
 
 function setHealthArmor(health, armor) {
   local.health = Math.max(0, Math.min(100, health));
-  local.armor = Math.max(0, Math.min(100, armor));
+  local.armor = Math.max(0, Math.min(200, armor));
 
   $("healthText").textContent = String(Math.round(local.health));
   $("armorText").textContent = String(Math.round(local.armor));
   $("healthBar").style.width = `${local.health}%`;
-  $("armorBar").style.width = `${local.armor}%`;
+  $("armorBar").style.width = `${Math.min(100, local.armor)}%`;
+  $("armorText").classList.toggle("overshield", local.armor > 100);
 
   if (local.health > 55) {
     $("healthBar").style.background = "linear-gradient(90deg,#27ad58,#69e88d)";
@@ -323,6 +342,61 @@ function setHealthArmor(health, armor) {
   } else {
     $("healthBar").style.background = "linear-gradient(90deg,#a91f35,#ef5665)";
   }
+}
+
+function activeLocalPower(name, now = Date.now()) {
+  return Number(local.powers?.[name] || 0) > now;
+}
+
+function updatePowerHud() {
+  const container = $("powerHud");
+  if (!container) return;
+
+  const now = Date.now();
+  const active = Object.entries(POWER_INFO).filter(([name]) => {
+    return name === "overshield" ? local.armor > 100 : activeLocalPower(name, now);
+  });
+
+  const signature = active.map(([name]) => {
+    const value = name === "overshield"
+      ? Math.round(local.armor)
+      : name === "dash"
+        ? `${Math.ceil((Number(local.powers.dash || 0) - now) / 250)}:${Math.ceil((Number(local.powers.dashReadyAt || 0) - now) / 250)}`
+        : Math.ceil((Number(local.powers[name] || 0) - now) / 500);
+    return `${name}:${value}`;
+  }).join("|");
+
+  if (signature === lastPowerHudSignature) return;
+  lastPowerHudSignature = signature;
+  container.replaceChildren();
+
+  for (const [name, info] of active) {
+    const chip = document.createElement("div");
+    chip.className = `power-chip ${name}`;
+    const label = document.createElement("strong");
+    label.textContent = info.short;
+    const detail = document.createElement("span");
+
+    if (name === "overshield") {
+      detail.textContent = `${Math.round(local.armor)} ARMOR`;
+    } else if (name === "dash") {
+      const readyIn = Math.max(0, Number(local.powers.dashReadyAt || 0) - now);
+      const duration = Math.max(0, Number(local.powers.dash || 0) - now);
+      detail.textContent = readyIn > 0 ? `${(readyIn / 1000).toFixed(1)}s` : `Q READY · ${Math.ceil(duration / 1000)}s`;
+      chip.classList.toggle("ready", readyIn <= 0);
+    } else {
+      detail.textContent = `${Math.ceil(Math.max(0, Number(local.powers[name]) - now) / 1000)}s`;
+    }
+
+    chip.append(label, detail);
+    container.appendChild(chip);
+  }
+
+  container.classList.toggle("empty", active.length === 0);
+}
+
+function powerName(name) {
+  return POWER_INFO[name]?.name || String(name || "Power");
 }
 
 function showAnimated(element, duration = 1500) {
@@ -459,6 +533,7 @@ function applyPlayerData(player, sampleTime = performance.now()) {
     local.crouching = player.crouching;
     local.weapon = player.weapon;
     local.owned = new Set(player.owned || Array.from(local.owned));
+    local.powers = { ...local.powers, ...(player.powers || {}) };
 
     setHealthArmor(player.health, player.armor);
     updateWeaponHud();
@@ -637,12 +712,20 @@ function simulateLocalMovement(dt) {
   if (!local.alive || pausedByMenu) return;
 
   const now = performance.now();
+  const epochNow = Date.now();
   const support = supportHeight(local.x, local.z, local.y);
-  const grounded = local.y <= support + 0.035 && local.vy <= 0.2;
+  const grounded = local.y <= support + 0.04 && local.vy <= 0.3;
   local.grounded = grounded;
 
-  if (local.input.jump && !local.previousJump && grounded) {
-    local.vy = MOVEMENT.jumpSpeed;
+  if (grounded) local.lastGroundedAt = now;
+
+  const jumpBuffered = now - local.jumpPressedAt <= MOVEMENT.jumpBuffer * 1000;
+  const canCoyoteJump = now - local.lastGroundedAt <= MOVEMENT.coyoteTime * 1000;
+
+  if (jumpBuffered && canCoyoteJump) {
+    local.vy = MOVEMENT.jumpSpeed * (activeLocalPower("jump", epochNow) ? 1.28 : 1);
+    local.jumpPressedAt = -Infinity;
+    local.lastGroundedAt = -Infinity;
   }
 
   const horizontalSpeed = Math.hypot(local.vx, local.vz);
@@ -659,8 +742,6 @@ function simulateLocalMovement(dt) {
   local.previousJump = local.input.jump;
   local.previousCrouch = local.input.crouch;
 
-  // Standard camera-relative WASD:
-  // W forward, S backward, A strafe left, D strafe right.
   let rightAmount = (local.input.right ? 1 : 0) - (local.input.left ? 1 : 0);
   let forwardAmount = (local.input.forward ? 1 : 0) - (local.input.backward ? 1 : 0);
   const length = Math.hypot(rightAmount, forwardAmount);
@@ -678,21 +759,26 @@ function simulateLocalMovement(dt) {
   let maxSpeed = MOVEMENT.walkSpeed;
   if (local.input.crouch) maxSpeed = MOVEMENT.crouchSpeed;
   if (local.input.sprint && !local.input.crouch) maxSpeed = MOVEMENT.sprintSpeed;
+  if (activeLocalPower("speed", epochNow)) maxSpeed *= 1.35;
   if (local.blocking) maxSpeed *= 0.55;
 
-  const accel = grounded ? MOVEMENT.moveAccel : MOVEMENT.airAccel;
+  const accel = (grounded ? MOVEMENT.moveAccel : MOVEMENT.airAccel) * (activeLocalPower("jump", epochNow) ? 1.18 : 1);
   const sliding = now < local.slideUntil;
+  const dashing = now < local.dashUntil;
 
-  if (sliding) {
+  if (dashing) {
+    local.vx = local.dashDirection.x * MOVEMENT.dashSpeed;
+    local.vz = local.dashDirection.z * MOVEMENT.dashSpeed;
+  } else if (sliding) {
     const current = Math.hypot(local.vx, local.vz) || 1;
     local.vx = local.vx / current * Math.max(MOVEMENT.slideSpeed * 0.72, current);
     local.vz = local.vz / current * Math.max(MOVEMENT.slideSpeed * 0.72, current);
   } else {
     const targetVx = worldX * maxSpeed;
     const targetVz = worldZ * maxSpeed;
-    const blend = Math.min(1, accel * dt / Math.max(maxSpeed, 1));
-    local.vx += (targetVx - local.vx) * blend;
-    local.vz += (targetVz - local.vz) * blend;
+    const response = 1 - Math.exp(-accel * dt / Math.max(maxSpeed, 1));
+    local.vx += (targetVx - local.vx) * response;
+    local.vz += (targetVz - local.vz) * response;
 
     if (length === 0) {
       const friction = grounded ? MOVEMENT.groundFriction : MOVEMENT.airFriction;
@@ -702,6 +788,7 @@ function simulateLocalMovement(dt) {
   }
 
   const tryMove = (axis, amount) => {
+    if (Math.abs(amount) < 0.000001) return;
     const nextX = axis === "x" ? local.x + amount : local.x;
     const nextZ = axis === "z" ? local.z + amount : local.z;
     const collision = collisionAt(nextX, local.y, nextZ);
@@ -720,10 +807,8 @@ function simulateLocalMovement(dt) {
     if (canMantle) {
       local.y = collision.maxY + 0.02;
       local.vy = Math.max(local.vy, 2.1);
-
       if (axis === "x") local.x = nextX;
       else local.z = nextZ;
-
       landingKick = Math.max(landingKick, 0.08);
       return;
     }
@@ -732,8 +817,13 @@ function simulateLocalMovement(dt) {
     else local.vz = 0;
   };
 
-  tryMove("x", local.vx * dt);
-  tryMove("z", local.vz * dt);
+  const moveX = local.vx * dt;
+  const moveZ = local.vz * dt;
+  const substeps = Math.max(1, Math.ceil(Math.hypot(moveX, moveZ) / 0.18));
+  for (let step = 0; step < substeps; step++) {
+    tryMove("x", moveX / substeps);
+    tryMove("z", moveZ / substeps);
+  }
 
   const distance = Math.hypot(local.x, local.z);
   const boundary = MOVEMENT.arenaRadius - MOVEMENT.playerRadius;
@@ -746,26 +836,26 @@ function simulateLocalMovement(dt) {
     local.vz *= 0.4;
   }
 
+  const preFallVelocity = local.vy;
   local.vy -= MOVEMENT.gravity * dt;
   local.y += local.vy * dt;
 
   const newSupport = supportHeight(local.x, local.z, local.y);
-
   if (local.y < newSupport) {
     local.y = newSupport;
     local.vy = 0;
     local.grounded = true;
+    local.lastGroundedAt = now;
   }
 
   if (!lastGrounded && local.grounded) {
-    landingKick = Math.min(0.18, Math.abs(local.vy) * 0.015 + 0.08);
+    landingKick = Math.min(0.18, Math.abs(preFallVelocity) * 0.015 + 0.06);
     effects.spawnDust({ x: local.x, y: local.y + 0.04, z: local.z }, 6);
   }
-
   lastGrounded = local.grounded;
 
   if (local.correction.lengthSq() > 0.000001) {
-    const factor = Math.min(1, dt * 8);
+    const factor = 1 - Math.exp(-dt * 10);
     const applied = local.correction.clone().multiplyScalar(factor);
     local.x += applied.x;
     local.y += applied.y;
@@ -774,27 +864,23 @@ function simulateLocalMovement(dt) {
   }
 
   const speed = Math.hypot(local.vx, local.vz);
-
-  if (local.grounded && speed > 1.2 && !sliding) {
+  if (local.grounded && speed > 1.2 && !sliding && !dashing) {
     audio.playFootstep(speed, "stone");
-
-    if (now - lastFootstepDust > Math.max(240, 520 - speed * 30)) {
+    if (now - lastFootstepDust > Math.max(220, 500 - speed * 30)) {
       lastFootstepDust = now;
       effects.spawnDust({ x: local.x, y: local.y + 0.04, z: local.z }, 2);
     }
   }
 
-  cameraBob += dt * (6.5 + speed * 0.8);
+  cameraBob += dt * (6.2 + speed * 0.76);
   const bobAmount = local.grounded ? Math.min(1, speed / 5) : 0;
   const eyeHeight = currentEyeHeight();
-  const bobX = Math.sin(cameraBob) * 0.025 * bobAmount;
-  const bobY = Math.abs(Math.cos(cameraBob * 2)) * 0.018 * bobAmount;
+  const bobX = Math.sin(cameraBob) * 0.022 * bobAmount;
+  const bobY = Math.abs(Math.cos(cameraBob * 2)) * 0.016 * bobAmount;
 
   landingKick *= Math.pow(0.04, dt);
-  cameraRoll += ((local.input.right ? -1 : 0) + (local.input.left ? 1 : 0) - cameraRoll) * Math.min(1, dt * 8);
-
+  cameraRoll += ((local.input.right ? -1 : 0) + (local.input.left ? 1 : 0) - cameraRoll) * (1 - Math.exp(-dt * 9));
   updateCameraTransform(dt, eyeHeight, bobX, bobY);
-
   recoilPitch *= Math.pow(0.01, dt);
 }
 
@@ -855,8 +941,43 @@ function updateCameraTransform(dt, eyeHeight, bobX, bobY) {
   camera.rotation.z = roll * 0.45;
 }
 
+function useDash() {
+  const now = Date.now();
+  if (!local.alive || !activeLocalPower("dash", now)) {
+    if (local.alive) showCombatText("FIND A BLINK CORE");
+    return;
+  }
+
+  if (now < Number(local.powers.dashReadyAt || 0)) {
+    showCombatText("DASH RECHARGING");
+    return;
+  }
+
+  let x = Number(local.input.right) - Number(local.input.left);
+  let z = Number(local.input.forward) - Number(local.input.backward);
+  if (Math.hypot(x, z) < 0.1) z = 1;
+  const length = Math.hypot(x, z) || 1;
+  x /= length;
+  z /= length;
+  const sin = Math.sin(local.yaw);
+  const cos = Math.cos(local.yaw);
+  local.dashDirection = {
+    x: x * cos - z * sin,
+    z: -x * sin - z * cos
+  };
+  local.dashUntil = performance.now() + MOVEMENT.dashDuration * 1000;
+  local.powers.dashReadyAt = now + 1600;
+  local.vx = local.dashDirection.x * MOVEMENT.dashSpeed;
+  local.vz = local.dashDirection.z * MOVEMENT.dashSpeed;
+
+  effects.spawnDash({ x: local.x, y: local.y, z: local.z }, local.dashDirection);
+  audio.playDash();
+  network.send("ability", { ability: "dash" });
+  showCombatText("DASH");
+}
+
 function sendInput(now) {
-  if (!local.id || now - lastInputSent < 50) return;
+  if (!local.id || now - lastInputSent < 33) return;
 
   inputSequence++;
 
@@ -931,8 +1052,14 @@ function fireGun() {
     return;
   }
 
-  nextLocalAttackAt = now + info.localCooldown;
-  ammo.magazine -= 1;
+  const ammoCost = serverWeapons[local.weapon]?.ammoPerShot || 1;
+  if (ammo.magazine < ammoCost) {
+    showCombatText("EMPTY — PRESS R");
+    return;
+  }
+  const rapidMultiplier = activeLocalPower("rapid") ? 0.70 : 1;
+  nextLocalAttackAt = now + info.localCooldown * rapidMultiplier;
+  ammo.magazine -= ammoCost;
   firstPersonWeapon.fire();
   if (localAvatar) localAvatar.triggerFire();
   audio.playWeapon(local.weapon);
@@ -950,8 +1077,9 @@ function fireGun() {
   camera.getWorldDirection(direction);
   const end = origin.clone().addScaledVector(direction, 18);
 
-  effects.spawnMuzzle(origin, info.color, local.weapon === "shotgun" ? 1.6 : 1);
-  effects.spawnTracer(origin, end, info.color, local.weapon === "shotgun" ? 1.5 : 1);
+  const heavy = local.weapon === "shotgun" || local.weapon === "railgun";
+  effects.spawnMuzzle(origin, info.color, heavy ? 1.75 : local.weapon === "lmg" ? 1.25 : 1);
+  effects.spawnTracer(origin, end, info.color, heavy ? 1.6 : 1);
 }
 
 function attemptAttack() {
@@ -1039,6 +1167,7 @@ function setupNetworkHandlers() {
   network.on("init", (message) => {
     local.id = message.id;
     serverWeapons = message.weapons || {};
+    serverPowerups = message.powerups || {};
     local.ammo = message.ammo || {};
     local.owned = new Set(message.player.owned || []);
     local.weapon = message.player.weapon;
@@ -1050,6 +1179,7 @@ function setupNetworkHandlers() {
     local.alive = message.player.alive;
     local.name = message.player.name;
     local.team = message.player.team;
+    local.powers = { ...local.powers, ...(message.player.powers || {}) };
 
     if (!localAvatar) {
       localAvatar = new LocalPlayerAvatar(scene, message.player, quality);
@@ -1160,7 +1290,8 @@ function setupNetworkHandlers() {
     if (remote) {
       remote.triggerFire();
       audio.playWeapon(message.weapon);
-      effects.spawnMuzzle(message.origin, info.color, message.weapon === "shotgun" ? 1.5 : 1);
+      const heavy = message.weapon === "shotgun" || message.weapon === "railgun";
+      effects.spawnMuzzle(message.origin, info.color, heavy ? 1.6 : message.weapon === "lmg" ? 1.25 : 1);
     }
 
     for (const impact of message.impacts || []) {
@@ -1169,7 +1300,7 @@ function setupNetworkHandlers() {
         impact,
         info.color,
         message.weapon === "shotgun" ? 3 : 5,
-        message.weapon === "marksman" ? 4.4 : 3.2
+        message.weapon === "railgun" ? 5.2 : message.weapon === "marksman" ? 4.4 : 3.2
       );
     }
   });
@@ -1201,6 +1332,22 @@ function setupNetworkHandlers() {
       showAnimated($("armorOverlay"), 340);
     } else {
       showAnimated($("damageOverlay"), 500);
+    }
+  });
+
+  network.on("vitals", (message) => {
+    setHealthArmor(message.health, message.armor);
+  });
+
+  network.on("ability", (message) => {
+    const position = { x: message.x, y: message.y, z: message.z };
+    effects.spawnDash(position, message.direction || { x: 0, z: -1 });
+
+    if (message.id === local.id) {
+      local.powers.dashReadyAt = message.dashReadyAt;
+    } else {
+      const remote = remotePlayers.get(message.id);
+      if (remote) remote.triggerFire();
     }
   });
 
@@ -1265,6 +1412,8 @@ function setupNetworkHandlers() {
       local.ammo = message.ammo || local.ammo;
       local.reloading = false;
       local.blocking = false;
+      local.powers = { ...local.powers, ...(message.player.powers || {}) };
+      local.dashUntil = 0;
       local.correction.set(0, 0, 0);
       firstPersonWeapon.setWeapon(local.weapon);
       firstPersonWeapon.setReloading(false);
@@ -1290,6 +1439,7 @@ function setupNetworkHandlers() {
     local.ammo = message.ammo || local.ammo;
     local.health = message.player.health;
     local.armor = message.player.armor;
+    local.powers = { ...local.powers, ...(message.player.powers || {}) };
     firstPersonWeapon.setWeapon(local.weapon);
     setHealthArmor(local.health, local.armor);
     updateWeaponHud();
@@ -1297,10 +1447,19 @@ function setupNetworkHandlers() {
     const pickup = message.pickup;
     const text = pickup.type === "weapon"
       ? `${WEAPON_INFO[pickup.weapon]?.name || pickup.weapon} acquired`
-      : `${pickup.type.toUpperCase()} PICKUP`;
+      : pickup.type === "power"
+        ? `${powerName(pickup.power)} activated`
+        : `${pickup.type.toUpperCase()} PICKUP`;
 
     showPickup(text);
-    audio.playPickup();
+    if (pickup.type === "power") {
+      const info = POWER_INFO[pickup.power];
+      effects.spawnPowerBurst({ x: local.x, y: local.y, z: local.z }, info?.color || 0xffffff);
+      audio.playPower(pickup.power);
+    } else {
+      audio.playPickup();
+    }
+    updatePowerHud();
   });
 
   network.on("round_end", (message) => {
@@ -1429,6 +1588,14 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "KeyR") {
     reloadWeapon();
+  }
+
+  if (event.code === "KeyQ" && !event.repeat) {
+    useDash();
+  }
+
+  if (event.code === "Space" && !event.repeat) {
+    local.jumpPressedAt = performance.now();
   }
 
   if (event.code === "KeyV" && !event.repeat) {
@@ -1562,7 +1729,8 @@ function updateCameraFov(dt) {
   let targetFov = settings.fov;
 
   if (aiming) targetFov = info.fov;
-  else if (sprinting) targetFov = settings.fov + 7;
+  else if (performance.now() < local.dashUntil) targetFov = settings.fov + 13;
+  else if (sprinting) targetFov = settings.fov + (activeLocalPower("speed") ? 10 : 7);
 
   camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 10);
   camera.updateProjectionMatrix();
@@ -1621,7 +1789,13 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const now = performance.now();
 
-  simulateLocalMovement(dt);
+  movementAccumulator = Math.min(0.2, movementAccumulator + dt);
+  let movementSteps = 0;
+  while (movementAccumulator >= MOVEMENT_STEP && movementSteps < 6) {
+    simulateLocalMovement(MOVEMENT_STEP);
+    movementAccumulator -= MOVEMENT_STEP;
+    movementSteps++;
+  }
   sendInput(now);
   updateAutomaticFire();
   updateRemotePlayers(now, dt);
@@ -1631,6 +1805,7 @@ function animate() {
   updateMatchClock();
   updateRadar();
   updateCrosshair();
+  updatePowerHud();
   updateCameraFov(dt);
   updateDeathCountdown(now);
   updateDayNight(now);

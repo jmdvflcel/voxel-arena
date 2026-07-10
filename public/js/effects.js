@@ -152,6 +152,50 @@ export class EffectsSystem {
     }
   }
 
+  spawnDash(position, direction, color = 0x6fe7ff) {
+    const length = Math.hypot(direction.x, direction.z) || 1;
+    for (let i = 0; i < 18; i++) {
+      const particle = nextAvailable(this.particlePool, this.particleCursor);
+      particle.position.set(
+        position.x + (Math.random() - 0.5) * 0.7,
+        position.y + 0.35 + Math.random() * 1.1,
+        position.z + (Math.random() - 0.5) * 0.7
+      );
+      particle.material.color.setHex(color);
+      particle.material.opacity = 0.85;
+      particle.scale.set(0.6, 0.6, 2.4 + Math.random() * 2.2);
+      particle.rotation.y = Math.atan2(direction.x / length, direction.z / length);
+      particle.userData.velocity.set(
+        -direction.x / length * (4 + Math.random() * 5),
+        (Math.random() - 0.5) * 0.8,
+        -direction.z / length * (4 + Math.random() * 5)
+      );
+      particle.userData.life = 0.18 + Math.random() * 0.18;
+      particle.userData.gravity = 0;
+      particle.visible = true;
+    }
+  }
+
+  spawnPowerBurst(position, color = 0xffffff) {
+    for (let i = 0; i < 26; i++) {
+      const particle = nextAvailable(this.particlePool, this.particleCursor);
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.8 + Math.random() * 3.8;
+      particle.position.set(position.x, position.y + 0.8, position.z);
+      particle.material.color.setHex(color);
+      particle.material.opacity = 1;
+      particle.scale.setScalar(0.75 + Math.random() * 0.9);
+      particle.userData.velocity.set(
+        Math.cos(angle) * speed,
+        0.5 + Math.random() * 3.0,
+        Math.sin(angle) * speed
+      );
+      particle.userData.life = 0.35 + Math.random() * 0.45;
+      particle.userData.gravity = 4;
+      particle.visible = true;
+    }
+  }
+
   update(dt) {
     this.time += dt;
 

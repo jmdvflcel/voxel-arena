@@ -1,71 +1,62 @@
-# Voxel Combat Arena v4.2
+# Voxel Combat Arena v5
 
-A polished multiplayer team-combat prototype designed for an AWS EC2 `t3.micro`.
+An advanced multiplayer browser combat game built for AWS EC2, Node.js, WebSockets, and Three.js.
 
-## What is included
+## Major features
 
-### Performance
+- First-person and third-person cameras (`V`)
+- Standard WASD movement with fixed-step client simulation
+- Smooth acceleration, coyote-time jumping, jump buffering, sliding, mantling, and air control
+- Server-authoritative 30 Hz movement and combat simulation
+- 15 Hz network snapshots with remote-player interpolation
+- Sub-stepped world collision to reduce tunneling and snagging
+- Precision head, torso, and leg hit zones with lag compensation
+- Visible player characters, usernames, health bars, team colors, and equipped weapons
+- Visible first-person hands and weapons with recoil springs, sway, reload poses, muzzle flashes, and tracers
+- Team Deathmatch, respawning, scoreboard, radar, chat, kill feed, assists, armor, and headshots
 
-- Instanced, chunk-organized arena rendering
-- Shared materials and geometry
-- Pooled tracers, muzzle flashes, sparks, and dust
-- Dynamic resolution scaling
-- Three graphics presets
-- Frustum and distance culling through Three.js
-- 20 Hz authoritative server simulation
-- 10 Hz network snapshots
-- Remote-player interpolation
-- Soft client/server position reconciliation
-- Nearby-player interest filtering
-- WebSocket compression disabled to reduce memory pressure
+## Weapons
 
-### Combat
+1. Arc Blade
+2. Pulse Pistol
+3. Viper SMG
+4. Vector Rifle
+5. Trident Burst Rifle
+6. Scatter Cannon
+7. Titan LMG
+8. Longshot Marksman Rifle
+9. Apex Railgun
 
-- Team deathmatch
-- Arc Blade with three-hit combos
-- Blocking and timing-based parries
-- Pulse Pistol
-- Automatic Vector Rifle
-- Scatter Cannon shotgun
-- Longshot marksman rifle
-- Server-validated ammunition, reloads, fire rates, damage, range, and teams
-- Approximate lag-compensated hitscan using recent server position history
-- Armor and health
-- Headshots
-- Assists
-- Spawn protection
-- Weapon, health, armor, and ammunition pickups
+Special weapons appear as contested arena pickups. Players spawn with the sword, pistol, SMG, and rifle.
 
-### Movement
+## Power pickups
 
-- Smooth acceleration and stopping
-- Sprinting
-- Crouching
-- Sliding
-- Jumping
-- Low-wall mantling
-- Air control
-- Camera bob
-- Landing response
-- Strafe camera tilt
-- Aim-down-sights FOV transitions
-- Weapon recoil and sway
+- **Overdrive:** faster movement
+- **Blink Core:** press `Q` to dash, then wait for its short recharge
+- **Aegis Shield:** increases armor up to 200
+- **Accelerator:** faster weapon fire rate
+- **Amplifier:** increased damage
+- **Regen Field:** regenerates health after avoiding damage
+- **Gravity Coil:** higher jumps and improved air control
 
-### Presentation
+## Controls
 
-- Original procedural pixel-style textures
-- Stylized arena lighting
-- Moving day/night lighting
-- Animated first-person weapons
-- Animated remote players
-- Usernames and health bars above players
-- Radar
-- Kill feed
-- Scoreboard
-- Chat
-- Match timer
-- Health, armor, ammunition, weapon slots, latency, FPS, and resolution HUD
-- Generated Web Audio sound effects
+| Key | Action |
+|---|---|
+| `W A S D` | Move |
+| Mouse | Look and aim |
+| Left click | Fire or melee attack |
+| Right click | Aim down sights or sword block |
+| `Space` | Jump or mantle |
+| `Shift` | Sprint |
+| `C` / Left Ctrl | Crouch or slide |
+| `Q` | Dash while Blink Core is active |
+| `R` | Reload |
+| `1`–`9` | Select weapon |
+| `V` | Switch first/third person |
+| `Enter` | Chat |
+| Hold `Tab` | Scoreboard |
+| `Esc` | Settings |
 
 ## Repository layout
 
@@ -74,6 +65,7 @@ voxel-arena/
 ├── package.json
 ├── server.js
 ├── user-data.sh
+├── update-existing-instance.sh
 ├── README.md
 └── public/
     ├── index.html
@@ -88,83 +80,31 @@ voxel-arena/
         └── world.js
 ```
 
-## Controls
+## Deploy a new EC2 instance
 
-| Control | Action |
-|---|---|
-| `WASD` | Move |
-| Mouse | Look |
-| `Shift` | Sprint |
-| `C` or Left Ctrl | Crouch / slide |
-| `Space` | Jump / mantle |
-| Left click | Fire / sword attack |
-| Right click | Aim / sword block |
-| `R` | Reload |
-| `1–5` | Select weapon |
-| `Enter` | Chat |
-| Hold `Tab` | Scoreboard |
-| `Esc` | Settings |
+1. Upload this project to the public GitHub repository `https://github.com/jmdvflcel/voxel-arena`.
+2. Use Amazon Linux 2023 on EC2.
+3. Allow inbound TCP port 80 from `0.0.0.0/0` in the Security Group.
+4. Paste `user-data.sh` into **Advanced details → User data**.
+5. Leave the base64 checkbox unchecked.
+6. Launch the instance and wait for both status checks plus several minutes for installation.
+7. Open `http://PUBLIC-IP`.
 
-## Deploy to EC2
+## Update an existing instance
 
-1. Upload all files from the ZIP to the root of your public GitHub repository.
-2. Confirm `user-data.sh` contains the correct repository URL.
-3. Launch an **Amazon Linux 2023** EC2 instance.
-4. A `t3.micro` works for a small classroom lobby.
-5. Add an inbound Security Group rule:
-
-```text
-Type: HTTP
-Protocol: TCP
-Port: 80
-Source: 0.0.0.0/0
-```
-
-6. Paste the complete contents of `user-data.sh` into **Advanced details → User data**.
-7. Leave the base64 checkbox unchecked.
-8. Launch the instance and wait several minutes.
-9. Open:
-
-```text
-http://YOUR-PUBLIC-IP
-```
-
-## Updating an existing instance
-
-After replacing the GitHub files:
+After committing the new files to GitHub, run:
 
 ```bash
-cd /opt/voxel-arena
-sudo -u ec2-user git fetch origin
-sudo -u ec2-user git reset --hard origin/main
-sudo -u ec2-user npm install --omit=dev
-sudo -u ec2-user npm run check
-sudo systemctl restart voxel-arena
-sudo systemctl restart nginx
+curl -fsSL https://raw.githubusercontent.com/jmdvflcel/voxel-arena/main/update-existing-instance.sh | sudo bash
 ```
+
+Then force-refresh the browser with `Ctrl + F5`.
 
 ## Troubleshooting
 
 ```bash
-sudo systemctl status voxel-arena --no-pager
-sudo systemctl status nginx --no-pager
-sudo journalctl -u voxel-arena -n 150 --no-pager
-sudo tail -n 150 /var/log/voxel-combat-arena-install.log
-curl -v http://127.0.0.1:3000/api/status
-sudo nginx -t
+sudo systemctl status voxel-arena --no-pager -l
+sudo systemctl status nginx --no-pager -l
+sudo journalctl -u voxel-arena -n 120 --no-pager
+curl http://127.0.0.1:3000/api/status
 ```
-
-## Scope
-
-This is an advanced classroom/portfolio prototype, not a commercial AAA game. It keeps graphics and effects in the browser while the EC2 instance handles authoritative movement, combat, teams, matches, pickups, and networking.
-
-## Version 4.2 camera and movement update
-
-- Correct standard WASD controls: W forward, S backward, A left, D right.
-- Press `V` to switch instantly between first-person and third-person views.
-- Camera mode can also be selected from the main and pause menus.
-- The local character, username, health bar, animations, and equipped weapon are visible in third person.
-- Other players remain fully visible with usernames, health, team colors, and equipped weapons.
-- Gun recoil now uses damped spring animation.
-- Bullet tracers travel smoothly instead of appearing as static lines.
-- Third-person camera includes wall collision and smooth follow interpolation.

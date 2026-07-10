@@ -1,8 +1,8 @@
 {
   "name": "voxel-combat-arena",
-  "version": "4.2.0",
+  "version": "5.0.0",
   "private": true,
-  "description": "Advanced multiplayer browser combat arena with first/third-person cameras for AWS EC2",
+  "description": "Advanced multiplayer browser combat arena with powers, nine weapons, smooth movement, and first/third-person cameras for AWS EC2",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

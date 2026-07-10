@@ -109,101 +109,118 @@ function skinMaterial() {
 export function createWeaponModel(name, firstPerson = false) {
   const group = new THREE.Group();
   const dark = new THREE.MeshStandardMaterial({
-    color: 0x222a35,
-    roughness: 0.42,
-    metalness: 0.58
+    color: 0x1b2531,
+    roughness: 0.34,
+    metalness: 0.68
+  });
+  const black = new THREE.MeshStandardMaterial({
+    color: 0x0d1219,
+    roughness: 0.48,
+    metalness: 0.5
   });
   const accentColor = WEAPON_INFO[name]?.color || 0xffffff;
   const accent = new THREE.MeshStandardMaterial({
     color: accentColor,
     emissive: accentColor,
-    emissiveIntensity: firstPerson ? 0.42 : 0.2,
-    roughness: 0.28,
-    metalness: 0.62
+    emissiveIntensity: firstPerson ? 0.55 : 0.25,
+    roughness: 0.22,
+    metalness: 0.72
   });
   const wood = new THREE.MeshStandardMaterial({
-    color: 0x6b4228,
-    roughness: 0.82,
-    metalness: 0.02
+    color: 0x65412d,
+    roughness: 0.8,
+    metalness: 0.03
   });
 
-  if (name === "sword") {
-    const blade = new THREE.Mesh(
-      new THREE.BoxGeometry(0.08, 1.25, 0.16),
-      accent
-    );
-    blade.position.y = 0.72;
+  const addBox = (size, position, material = dark, rotation = null) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
+    mesh.position.set(...position);
+    if (rotation) mesh.rotation.set(...rotation);
+    group.add(mesh);
+    return mesh;
+  };
 
-    const tip = new THREE.Mesh(
-      new THREE.ConeGeometry(0.12, 0.32, 4),
-      accent
-    );
-    tip.position.y = 1.5;
-    tip.rotation.y = Math.PI / 4;
-
-    const guard = new THREE.Mesh(
-      new THREE.BoxGeometry(0.55, 0.09, 0.17),
-      dark
-    );
-    guard.position.y = 0.05;
-
-    const grip = new THREE.Mesh(
-      new THREE.BoxGeometry(0.13, 0.44, 0.15),
-      wood
-    );
-    grip.position.y = -0.22;
-
-    group.add(blade, tip, guard, grip);
-  } else {
-    const sizes = {
-      pistol: [0.28, 0.35, 0.82],
-      rifle: [0.32, 0.34, 1.5],
-      shotgun: [0.36, 0.38, 1.64],
-      marksman: [0.31, 0.34, 1.8]
-    };
-
-    const [width, height, length] = sizes[name] || sizes.pistol;
-
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(width, height, length),
-      dark
-    );
-    body.position.z = -length * 0.18;
-
+  const addBarrel = (radius, length, z, material = accent) => {
     const barrel = new THREE.Mesh(
-      new THREE.CylinderGeometry(width * 0.18, width * 0.18, length * 0.56, 10),
-      accent
+      new THREE.CylinderGeometry(radius, radius, length, 12),
+      material
     );
     barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(0, 0.02, -length * 0.68);
+    barrel.position.set(0, 0.02, z);
+    group.add(barrel);
+    return barrel;
+  };
 
-    const grip = new THREE.Mesh(
-      new THREE.BoxGeometry(width * 0.7, height * 1.1, length * 0.22),
-      wood
-    );
-    grip.rotation.x = -0.3;
-    grip.position.set(0, -height * 0.85, length * 0.05);
+  if (name === "sword") {
+    const blade = addBox([0.09, 1.32, 0.17], [0, 0.75, 0], accent);
+    const fuller = addBox([0.025, 1.05, 0.185], [0, 0.77, 0], black);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.34, 4), accent);
+    tip.position.y = 1.58;
+    tip.rotation.y = Math.PI / 4;
+    const guard = addBox([0.62, 0.1, 0.19], [0, 0.05, 0], dark);
+    const grip = addBox([0.14, 0.46, 0.16], [0, -0.23, 0], wood);
+    const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), accent);
+    pommel.position.y = -0.5;
+    group.add(tip, pommel);
+    group.userData.muzzleLocal = new THREE.Vector3(0, 1.7, 0);
+  } else {
+    const profiles = {
+      pistol: { w: 0.28, h: 0.34, l: 0.82, barrel: 0.5, stock: 0, mag: 0.25 },
+      smg: { w: 0.31, h: 0.34, l: 1.15, barrel: 0.68, stock: 0.28, mag: 0.38 },
+      rifle: { w: 0.33, h: 0.35, l: 1.5, barrel: 0.88, stock: 0.45, mag: 0.42 },
+      burst: { w: 0.34, h: 0.37, l: 1.55, barrel: 0.92, stock: 0.46, mag: 0.46 },
+      shotgun: { w: 0.37, h: 0.39, l: 1.68, barrel: 1.08, stock: 0.5, mag: 0.22 },
+      lmg: { w: 0.4, h: 0.43, l: 1.72, barrel: 0.94, stock: 0.5, mag: 0.62 },
+      marksman: { w: 0.32, h: 0.34, l: 1.84, barrel: 1.15, stock: 0.54, mag: 0.35 },
+      railgun: { w: 0.38, h: 0.4, l: 1.95, barrel: 1.22, stock: 0.52, mag: 0.32 }
+    };
+    const profile = profiles[name] || profiles.pistol;
+    const { w, h, l } = profile;
 
-    group.add(body, barrel, grip);
+    addBox([w, h, l * 0.68], [0, 0, -l * 0.16], dark);
+    addBox([w * 0.82, h * 0.45, l * 0.72], [0, h * 0.42, -l * 0.2], accent);
+    addBarrel(w * 0.16, profile.barrel, -l * 0.58 - profile.barrel * 0.25, accent);
+    addBox([w * 0.68, h * 1.05, profile.mag], [0, -h * 0.84, -l * 0.04], wood, [-0.18, 0, 0]);
+    addBox([w * 0.45, h * 1.1, l * 0.2], [0, -h * 0.75, l * 0.08], black, [-0.3, 0, 0]);
 
-    if (name !== "pistol") {
-      const stock = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.9, height * 0.72, length * 0.35),
-        dark
-      );
-      stock.position.z = length * 0.52;
-      group.add(stock);
+    if (profile.stock > 0) {
+      addBox([w * 0.92, h * 0.75, profile.stock], [0, -h * 0.02, l * 0.46], dark);
     }
 
-    if (name === "marksman") {
+    if (["rifle", "burst", "marksman", "railgun"].includes(name)) {
+      const scopeLength = name === "marksman" || name === "railgun" ? 0.66 : 0.38;
       const scope = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.11, 0.11, 0.58, 12),
-        accent
+        new THREE.CylinderGeometry(w * 0.23, w * 0.23, scopeLength, 12),
+        black
       );
       scope.rotation.x = Math.PI / 2;
-      scope.position.set(0, height * 0.72, -0.18);
+      scope.position.set(0, h * 0.83, -l * 0.12);
       group.add(scope);
     }
+
+    if (name === "lmg") {
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.28, 16), dark);
+      drum.rotation.z = Math.PI / 2;
+      drum.position.set(0, -0.38, -0.05);
+      group.add(drum);
+      addBox([0.07, 0.58, 0.07], [-0.2, -0.42, -0.62], black, [0.2, 0, 0.15]);
+      addBox([0.07, 0.58, 0.07], [0.2, -0.42, -0.62], black, [0.2, 0, -0.15]);
+    }
+
+    if (name === "shotgun") {
+      addBox([w * 0.82, h * 0.56, 0.42], [0, -0.08, -0.56], wood);
+    }
+
+    if (name === "railgun") {
+      addBox([0.08, 0.08, 1.45], [-0.2, 0.2, -0.32], accent);
+      addBox([0.08, 0.08, 1.45], [0.2, 0.2, -0.32], accent);
+      const coil = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.045, 8, 18), accent);
+      coil.rotation.x = Math.PI / 2;
+      coil.position.z = -0.83;
+      group.add(coil);
+    }
+
+    group.userData.muzzleLocal = new THREE.Vector3(0, 0.02, -l * 0.72 - profile.barrel * 0.5);
   }
 
   group.traverse((object) => {
@@ -276,6 +293,18 @@ export class RemotePlayer {
     this.label = createCanvasLabel(player.name, player.team);
     this.label.position.y = 2.55;
 
+    this.powerAura = new THREE.Mesh(
+      new THREE.SphereGeometry(0.72, 16, 10),
+      new THREE.MeshBasicMaterial({
+        color: 0x6fe7ff,
+        transparent: true,
+        opacity: 0,
+        wireframe: true,
+        depthWrite: false
+      })
+    );
+    this.powerAura.position.y = 1.05;
+
     this.weaponHolder = new THREE.Group();
     this.weaponHolder.position.set(0.12, -0.65, -0.12);
     this.rightArmPivot.add(this.weaponHolder);
@@ -287,7 +316,8 @@ export class RemotePlayer {
       this.rightArmPivot,
       this.leftLegPivot,
       this.rightLegPivot,
-      this.label
+      this.label,
+      this.powerAura
     );
 
     this.group.traverse((object) => {
@@ -357,7 +387,8 @@ export class RemotePlayer {
       blocking: Boolean(player.blocking),
       sliding: Boolean(player.sliding),
       crouching: Boolean(player.crouching),
-      reloading: Boolean(player.reloading)
+      reloading: Boolean(player.reloading),
+      powers: player.powers || {}
     });
 
     while (this.samples.length > 12) this.samples.shift();
@@ -423,6 +454,10 @@ export class RemotePlayer {
     this.torso.position.y = 1.12 + crouchOffset;
     this.head.position.y = 1.82 + crouchOffset;
     this.label.position.y = 2.55 + crouchOffset;
+    const activePowers = newer.powers || {};
+    const powerActive = Object.entries(activePowers).some(([key, value]) => key !== "dashReadyAt" && Number(value) > Date.now());
+    this.powerAura.material.opacity += ((powerActive ? 0.22 : 0) - this.powerAura.material.opacity) * Math.min(1, dt * 10);
+    this.powerAura.rotation.y += dt * 1.8;
 
     if (this.swing > 0) {
       this.swing = Math.max(0, this.swing - dt * 4.8);
@@ -477,6 +512,10 @@ export class RemotePlayer {
     this.torso.position.y = 1.12 + crouchOffset;
     this.head.position.y = 1.82 + crouchOffset;
     this.label.position.y = 2.55 + crouchOffset;
+    const activePowers = player.powers || {};
+    const powerActive = Object.entries(activePowers).some(([key, value]) => key !== "dashReadyAt" && Number(value) > Date.now());
+    this.powerAura.material.opacity += ((powerActive ? 0.22 : 0) - this.powerAura.material.opacity) * Math.min(1, dt * 10);
+    this.powerAura.rotation.y += dt * 1.8;
 
     if (this.swing > 0) {
       this.swing = Math.max(0, this.swing - dt * 4.8);
@@ -510,9 +549,9 @@ export class RemotePlayer {
       return new THREE.Vector3(this.group.position.x, this.group.position.y + 1.45, this.group.position.z);
     }
 
-    const local = this.weaponName === "sword"
-      ? new THREE.Vector3(0, 1.45, 0)
-      : new THREE.Vector3(0, 0, -1.25);
+    const local = this.weapon.userData.muzzleLocal
+      ? this.weapon.userData.muzzleLocal.clone()
+      : this.weaponName === "sword" ? new THREE.Vector3(0, 1.45, 0) : new THREE.Vector3(0, 0, -1.25);
 
     return this.weapon.localToWorld(local);
   }
@@ -551,11 +590,34 @@ export class FirstPersonWeapon {
     this.recoilYaw = 0;
     this.recoilYawVelocity = 0;
     this.switchBlend = 1;
+    this.muzzlePulse = 0;
+
+    const sleeve = new THREE.MeshStandardMaterial({ color: 0x26374b, roughness: 0.72 });
+    const skin = new THREE.MeshStandardMaterial({ color: 0xefc29e, roughness: 0.84 });
+    this.leftForearm = new THREE.Group();
+    this.rightForearm = new THREE.Group();
+    const makeArm = () => {
+      const arm = new THREE.Group();
+      const sleeveMesh = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.2, 0.56), sleeve);
+      sleeveMesh.position.z = 0.2;
+      const hand = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.15, 0.2), skin);
+      hand.position.z = -0.18;
+      arm.add(sleeveMesh, hand);
+      return arm;
+    };
+    this.leftForearm = makeArm();
+    this.rightForearm = makeArm();
+    this.leftForearm.position.set(-0.24, -0.23, -0.45);
+    this.rightForearm.position.set(0.31, -0.28, -0.42);
+    this.leftForearm.rotation.set(-0.3, 0.1, 0.08);
+    this.rightForearm.rotation.set(-0.25, -0.1, -0.08);
+    this.root.add(this.leftForearm, this.rightForearm);
 
     for (const name of Object.keys(WEAPON_INFO)) {
       const model = createWeaponModel(name, true);
       model.visible = false;
-      model.scale.setScalar(name === "sword" ? 0.7 : 0.72);
+      const scale = name === "sword" ? 0.7 : name === "railgun" || name === "lmg" ? 0.62 : 0.72;
+      model.scale.setScalar(scale);
       this.root.add(model);
       this.models.set(name, model);
     }
@@ -584,6 +646,7 @@ export class FirstPersonWeapon {
     const impulse = 5.6 + info.recoil * 78;
     this.recoilVelocity += impulse;
     this.recoilYawVelocity += (Math.random() - 0.5) * (1.3 + info.recoil * 15);
+    this.muzzlePulse = 1;
   }
 
   melee(combo) {
@@ -673,6 +736,13 @@ export class FirstPersonWeapon {
       targetPosition.set(0.18, -0.7, -0.55);
     }
 
+    this.muzzlePulse = Math.max(0, this.muzzlePulse - dt * 12);
+    const handKick = this.recoilPosition * 0.035;
+    this.rightForearm.position.z += ((-0.42 + handKick) - this.rightForearm.position.z) * (1 - Math.exp(-dt * 24));
+    this.leftForearm.position.z += ((-0.45 + handKick * 0.55) - this.leftForearm.position.z) * (1 - Math.exp(-dt * 20));
+    this.leftForearm.visible = !isSword;
+    this.rightForearm.visible = true;
+
     const positionBlend = 1 - Math.exp(-dt * 21);
     const rotationBlend = 1 - Math.exp(-dt * 22);
     this.root.position.lerp(targetPosition, positionBlend);
@@ -682,12 +752,13 @@ export class FirstPersonWeapon {
   }
 
   muzzleWorldPosition() {
-    const local = this.current === "sword"
-      ? new THREE.Vector3(0, 1.5, 0)
-      : new THREE.Vector3(0, 0, -1.2);
+    const model = this.models.get(this.current);
+    const local = model.userData.muzzleLocal
+      ? model.userData.muzzleLocal.clone()
+      : this.current === "sword" ? new THREE.Vector3(0, 1.5, 0) : new THREE.Vector3(0, 0, -1.2);
 
     this.camera.updateMatrixWorld(true);
-    return this.models.get(this.current).localToWorld(local);
+    return model.localToWorld(local);
   }
 }
 

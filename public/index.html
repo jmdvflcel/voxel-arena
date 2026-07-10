@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#09111f">
-  <title>Voxel Combat Arena</title>
+  <title>Voxel Combat Arena v5</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div id="bootScreen">
     <div class="boot-card">
       <div class="eyebrow">AWS EC2 MULTIPLAYER</div>
-      <h1>Voxel Combat Arena</h1>
-      <p class="tagline">Fast team combat with blades, pistols, rifles, shotguns, and marksman weapons.</p>
+      <h1>Voxel Combat Arena <span class="version-mark">v5</span></h1>
+      <p class="tagline">Fast team combat with nine weapons, smoother movement, precision hitboxes, dashes, and collectible powers.</p>
 
       <label>
         Fighter name
@@ -59,7 +59,7 @@
       <button id="playButton">Enter Arena</button>
 
       <div class="control-strip">
-        WASD move · Shift sprint · C crouch/slide · Space jump/mantle · Left click fire/attack · Right click aim/block · R reload · 1–5 weapons · V camera · Enter chat · Tab scoreboard · Esc settings
+        WASD move · Shift sprint · C crouch/slide · Space jump/mantle · Q dash power · Left click fire/attack · Right click aim/block · R reload · 1–9 weapons · V camera · Enter chat · Tab scoreboard · Esc settings
       </div>
     </div>
   </div>
@@ -139,6 +139,14 @@
 
   <div id="cameraModeBadge">FIRST PERSON · V TO SWITCH</div>
 
+  <section id="powerPanel">
+    <header>
+      <span>ACTIVE POWERS</span>
+      <small>Collect glowing cores · Q uses dash</small>
+    </header>
+    <div id="powerHud" class="empty"></div>
+  </section>
+
   <div id="crosshair">
     <span class="line top"></span>
     <span class="line right"></span>
@@ -182,6 +190,7 @@
     <div id="weaponSlots"></div>
   </section>
 
+  <div id="interactionTip">POWER CORES respawn around the arena · Special weapons appear at contested locations</div>
   <div id="pickupNotice"></div>
   <div id="killBanner"></div>
   <div id="killFeed"></div>
