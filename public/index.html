@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Voxel Arena</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="loading">
+    <div class="panel">
+      <h1>Voxel Arena</h1>
+      <p>A multiplayer voxel sandbox running on AWS EC2.</p>
+      <input id="nameInput" maxlength="18" placeholder="Player name">
+      <button id="playButton">Enter World</button>
+      <p class="small">Open the same public IP on another computer to test multiplayer.</p>
+    </div>
+  </div>
+
+  <div id="hud">
+    <strong>Voxel Arena</strong><br>
+    AZ: <span id="az">connecting</span><br>
+    Instance: <span id="instance">connecting</span><br>
+    Players: <span id="playerCount">1</span><br>
+    FPS: <span id="fps">0</span><br>
+    Position: <span id="position">0, 0, 0</span>
+  </div>
+
+  <div id="help">
+    WASD move · Mouse look · Space jump · Shift sprint<br>
+    Left click break · Right click place · 1–7 select · Enter chat
+  </div>
+
+  <div id="crosshair">+</div>
+
+  <div id="hotbar">
+    <button data-block="grass" class="active">1 Grass</button>
+    <button data-block="dirt">2 Dirt</button>
+    <button data-block="stone">3 Stone</button>
+    <button data-block="wood">4 Wood</button>
+    <button data-block="sand">5 Sand</button>
+    <button data-block="leaves">6 Leaves</button>
+    <button data-block="glass">7 Glass</button>
+  </div>
+
+  <div id="chat">
+    <div id="messages"></div>
+    <input id="chatInput" maxlength="120" placeholder="Press Enter to chat">
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="/client.js"></script>
+</body>
+</html>
