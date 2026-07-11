@@ -7,7 +7,7 @@ REPO_URL="https://github.com/jmdvflcel/voxel-arena.git"
 
 exec > >(tee -a /var/log/voxel-combat-arena-update.log) 2>&1
 
-echo "=== Updating Voxel Combat Arena v5 ==="
+echo "=== Updating Voxel Combat Arena v6 ==="
 
 if [ ! -d "$APP_DIR/.git" ]; then
   sudo rm -rf "$APP_DIR"
@@ -67,4 +67,4 @@ if [ "$HEALTHY" -ne 1 ]; then
   exit 1
 fi
 
-echo "=== Voxel Combat Arena v5 update complete ==="
+echo "=== Voxel Combat Arena v6 update complete ==="

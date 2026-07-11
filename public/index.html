@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#09111f">
-  <title>Voxel Combat Arena v5</title>
+  <title>Voxel Combat Arena v6</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div id="bootScreen">
     <div class="boot-card">
       <div class="eyebrow">AWS EC2 MULTIPLAYER</div>
-      <h1>Voxel Combat Arena <span class="version-mark">v5</span></h1>
-      <p class="tagline">Fast team combat with nine weapons, smoother movement, precision hitboxes, dashes, and collectible powers.</p>
+      <h1>Voxel Combat Arena <span class="version-mark">v6</span></h1>
+      <p class="tagline">A sharper first-person combat experience with scoped ADS, permanent grappling, precision gunplay, kill cams, rare relic weapons, and vertical arena routes.</p>
 
       <label>
         Fighter name
@@ -59,7 +59,7 @@
       <button id="playButton">Enter Arena</button>
 
       <div class="control-strip">
-        WASD move · Shift sprint · C crouch/slide · Space jump/mantle · Q dash power · Left click fire/attack · Right click aim/block · R reload · 1–9 weapons · V camera · Enter chat · Tab scoreboard · Esc settings
+        WASD move · Shift sprint · C crouch/slide · Space jump/mantle · Q dash power · E grapple · Left click fire/attack · Right click aim/block · R reload · 1–9 weapons · 0 rare blade · V camera · Enter chat · Tab scoreboard · Esc settings
       </div>
     </div>
   </div>
@@ -142,9 +142,23 @@
   <section id="powerPanel">
     <header>
       <span>ACTIVE POWERS</span>
-      <small>Collect glowing cores · Q uses dash</small>
+      <small>Collect glowing cores · Q dash · E permanent grapple</small>
     </header>
     <div id="powerHud" class="empty"></div>
+  </section>
+
+  <div id="scopeOverlay" class="hidden">
+    <div class="scope-vignette"></div>
+    <div class="scope-ring"></div>
+    <div class="scope-reticle horizontal"></div>
+    <div class="scope-reticle vertical"></div>
+    <div class="scope-dot"></div>
+    <div id="scopeLabel">1.0×</div>
+  </div>
+
+  <section id="grappleHud">
+    <strong>E</strong>
+    <div><span>GRAPPLE</span><small id="grappleState">READY</small></div>
   </section>
 
   <div id="crosshair">
@@ -190,7 +204,7 @@
     <div id="weaponSlots"></div>
   </section>
 
-  <div id="interactionTip">POWER CORES respawn around the arena · Special weapons appear at contested locations</div>
+  <div id="interactionTip">E GRAPPLE is always available · ADS improves accuracy · The rare Void Reaper appears only occasionally</div>
   <div id="pickupNotice"></div>
   <div id="killBanner"></div>
   <div id="killFeed"></div>
@@ -219,6 +233,12 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <section id="killCam" class="hidden">
+    <header><strong>KILLCAM</strong><span id="killCamKiller">Enemy view</span></header>
+    <div class="killcam-progress"><div id="killCamProgress"></div></div>
+    <small>Press F, Space, or click to skip</small>
   </section>
 
   <section id="deathScreen" class="hidden">

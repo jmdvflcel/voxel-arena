@@ -1,110 +1,43 @@
-# Voxel Combat Arena v5
+# Voxel Combat Arena v6
 
-An advanced multiplayer browser combat game built for AWS EC2, Node.js, WebSockets, and Three.js.
+A browser-based multiplayer FPS/melee arena designed for AWS EC2 t3.micro.
 
-## Major features
+## v6 highlights
 
-- First-person and third-person cameras (`V`)
-- Standard WASD movement with fixed-step client simulation
-- Smooth acceleration, coyote-time jumping, jump buffering, sliding, mantling, and air control
-- Server-authoritative 30 Hz movement and combat simulation
-- 15 Hz network snapshots with remote-player interpolation
-- Sub-stepped world collision to reduce tunneling and snagging
-- Precision head, torso, and leg hit zones with lag compensation
-- Visible player characters, usernames, health bars, team colors, and equipped weapons
-- Visible first-person hands and weapons with recoil springs, sway, reload poses, muzzle flashes, and tracers
-- Team Deathmatch, respawning, scoreboard, radar, chat, kill feed, assists, armor, and headshots
-
-## Weapons
-
-1. Arc Blade
-2. Pulse Pistol
-3. Viper SMG
-4. Vector Rifle
-5. Trident Burst Rifle
-6. Scatter Cannon
-7. Titan LMG
-8. Longshot Marksman Rifle
-9. Apex Railgun
-
-Special weapons appear as contested arena pickups. Players spawn with the sword, pistol, SMG, and rifle.
-
-## Power pickups
-
-- **Overdrive:** faster movement
-- **Blink Core:** press `Q` to dash, then wait for its short recharge
-- **Aegis Shield:** increases armor up to 200
-- **Accelerator:** faster weapon fire rate
-- **Amplifier:** increased damage
-- **Regen Field:** regenerates health after avoiding damage
-- **Gravity Coil:** higher jumps and improved air control
+- More accurate server-authoritative gunplay with ADS, movement, crouch, airborne, and recoil-bloom accuracy states
+- Permanent grappling hook for every player (`E`)
+- True scoped first-person ADS overlays and centered weapon sights
+- Two-second server-recorded, skippable kill cam (`F`, Space, or click)
+- Rare one-hit Void Reaper sword with randomized appearance windows
+- Expanded 68×68 arena with stairs to all major pickups, grapple towers, and elevated anchors
+- First- and third-person weapon/character rendering, usernames, health bars, recoil, tracers, powers, and pickups
+- Smooth prediction/interpolation and t3.micro-safe authoritative networking
 
 ## Controls
 
-| Key | Action |
-|---|---|
-| `W A S D` | Move |
-| Mouse | Look and aim |
-| Left click | Fire or melee attack |
-| Right click | Aim down sights or sword block |
-| `Space` | Jump or mantle |
-| `Shift` | Sprint |
-| `C` / Left Ctrl | Crouch or slide |
-| `Q` | Dash while Blink Core is active |
-| `R` | Reload |
-| `1`–`9` | Select weapon |
-| `V` | Switch first/third person |
-| `Enter` | Chat |
-| Hold `Tab` | Scoreboard |
-| `Esc` | Settings |
+- WASD: move
+- Mouse: look
+- Left click: fire/attack
+- Right click: ADS or melee block
+- E: grapple / cancel grapple
+- Q: dash when Blink Core is active
+- Space: jump/mantle or skip kill cam
+- Shift: sprint
+- C: crouch/slide
+- R: reload
+- 1–9: normal weapons
+- 0: rare Void Reaper after pickup
+- V: first/third person
+- F: skip kill cam
+- Enter: chat
+- Tab: scoreboard
 
-## Repository layout
+## Deploy
 
-```text
-voxel-arena/
-├── package.json
-├── server.js
-├── user-data.sh
-├── update-existing-instance.sh
-├── README.md
-└── public/
-    ├── index.html
-    ├── style.css
-    └── js/
-        ├── audio.js
-        ├── config.js
-        ├── effects.js
-        ├── main.js
-        ├── network.js
-        ├── player.js
-        └── world.js
-```
+Upload all project files to `https://github.com/jmdvflcel/voxel-arena`, then use `user-data.sh` for a new Amazon Linux 2023 instance. Allow inbound HTTP TCP 80.
 
-## Deploy a new EC2 instance
-
-1. Upload this project to the public GitHub repository `https://github.com/jmdvflcel/voxel-arena`.
-2. Use Amazon Linux 2023 on EC2.
-3. Allow inbound TCP port 80 from `0.0.0.0/0` in the Security Group.
-4. Paste `user-data.sh` into **Advanced details → User data**.
-5. Leave the base64 checkbox unchecked.
-6. Launch the instance and wait for both status checks plus several minutes for installation.
-7. Open `http://PUBLIC-IP`.
-
-## Update an existing instance
-
-After committing the new files to GitHub, run:
+Update an existing instance:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jmdvflcel/voxel-arena/main/update-existing-instance.sh | sudo bash
-```
-
-Then force-refresh the browser with `Ctrl + F5`.
-
-## Troubleshooting
-
-```bash
-sudo systemctl status voxel-arena --no-pager -l
-sudo systemctl status nginx --no-pager -l
-sudo journalctl -u voxel-arena -n 120 --no-pager
-curl http://127.0.0.1:3000/api/status
 ```

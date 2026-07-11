@@ -151,18 +151,34 @@ export function createWeaponModel(name, firstPerson = false) {
     return barrel;
   };
 
-  if (name === "sword") {
-    const blade = addBox([0.09, 1.32, 0.17], [0, 0.75, 0], accent);
-    const fuller = addBox([0.025, 1.05, 0.185], [0, 0.77, 0], black);
+  if (name === "sword" || name === "voidblade") {
+    const rare = name === "voidblade";
+    if (rare) {
+      accent.color.setHex(0xff35e8);
+      accent.emissive.setHex(0x8f006f);
+      accent.emissiveIntensity = firstPerson ? 1.25 : 0.75;
+    }
+    const blade = addBox([rare ? 0.12 : 0.09, rare ? 1.5 : 1.32, 0.17], [0, rare ? 0.84 : 0.75, 0], accent);
+    const fuller = addBox([0.025, rare ? 1.2 : 1.05, 0.185], [0, rare ? 0.86 : 0.77, 0], black);
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.34, 4), accent);
-    tip.position.y = 1.58;
+    tip.position.y = rare ? 1.78 : 1.58;
     tip.rotation.y = Math.PI / 4;
     const guard = addBox([0.62, 0.1, 0.19], [0, 0.05, 0], dark);
     const grip = addBox([0.14, 0.46, 0.16], [0, -0.23, 0], wood);
     const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), accent);
     pommel.position.y = -0.5;
     group.add(tip, pommel);
-    group.userData.muzzleLocal = new THREE.Vector3(0, 1.7, 0);
+    if (rare) {
+      const aura = new THREE.Mesh(
+        new THREE.TorusGeometry(0.22, 0.035, 8, 24),
+        new THREE.MeshBasicMaterial({ color: 0xff35e8, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending })
+      );
+      aura.position.y = 1.02;
+      aura.rotation.x = Math.PI / 2;
+      group.add(aura);
+      group.userData.rareAura = aura;
+    }
+    group.userData.muzzleLocal = new THREE.Vector3(0, rare ? 1.9 : 1.7, 0);
   } else {
     const profiles = {
       pistol: { w: 0.28, h: 0.34, l: 0.82, barrel: 0.5, stock: 0, mag: 0.25 },
@@ -197,6 +213,21 @@ export function createWeaponModel(name, firstPerson = false) {
       scope.position.set(0, h * 0.83, -l * 0.12);
       group.add(scope);
     }
+
+    // Layered rails, sights, receiver panels, and muzzle hardware make the
+    // procedural weapons read more clearly in first person without external assets.
+    addBox([w * 0.78, 0.035, l * 0.55], [0, h * 0.69, -l * 0.18], black);
+    addBox([w * 1.03, h * 0.08, l * 0.18], [0, -h * 0.12, -l * 0.43], accent);
+    addBox([w * 0.08, h * 0.22, 0.035], [0, h * 0.78, -l * 0.53], accent);
+    addBox([w * 0.12, h * 0.16, 0.035], [0, h * 0.78, l * 0.08], black);
+
+    const muzzleBrake = new THREE.Mesh(
+      new THREE.CylinderGeometry(w * 0.22, w * 0.18, 0.16, 16),
+      black
+    );
+    muzzleBrake.rotation.x = Math.PI / 2;
+    muzzleBrake.position.z = -l * 0.72 - profile.barrel * 0.5;
+    group.add(muzzleBrake);
 
     if (name === "lmg") {
       const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.28, 16), dark);
@@ -355,16 +386,16 @@ export class RemotePlayer {
 
     this.weaponName = name;
     this.weapon = createWeaponModel(name);
-    this.weapon.scale.setScalar(name === "sword" ? 0.58 : 0.52);
+    this.weapon.scale.setScalar((name === "sword" || name === "voidblade") ? 0.58 : 0.52);
     this.weapon.rotation.set(
-      name === "sword" ? -0.2 : -0.05,
+      (name === "sword" || name === "voidblade") ? -0.2 : -0.05,
       Math.PI,
-      name === "sword" ? -0.55 : 0
+      (name === "sword" || name === "voidblade") ? -0.55 : 0
     );
     this.weapon.position.set(
-      name === "sword" ? 0.22 : 0.12,
-      name === "sword" ? -0.22 : -0.08,
-      name === "sword" ? -0.15 : -0.08
+      (name === "sword" || name === "voidblade") ? 0.22 : 0.12,
+      (name === "sword" || name === "voidblade") ? -0.22 : -0.08,
+      (name === "sword" || name === "voidblade") ? -0.15 : -0.08
     );
     this.weaponHolder.add(this.weapon);
   }
@@ -464,7 +495,7 @@ export class RemotePlayer {
       const progress = 1 - this.swing;
       this.rightArmPivot.rotation.x = -1.1 + Math.sin(progress * Math.PI) * 2.15;
       this.rightArmPivot.rotation.z = -0.25 + Math.sin(progress * Math.PI) * 0.72;
-    } else if (this.blocking && this.weaponName === "sword") {
+    } else if (this.blocking && (this.weaponName === "sword" || this.weaponName === "voidblade")) {
       this.rightArmPivot.rotation.x += (-1.15 - this.rightArmPivot.rotation.x) * Math.min(1, dt * 15);
       this.rightArmPivot.rotation.z += (-0.85 - this.rightArmPivot.rotation.z) * Math.min(1, dt * 15);
     } else {
@@ -522,7 +553,7 @@ export class RemotePlayer {
       const progress = 1 - this.swing;
       this.rightArmPivot.rotation.x = -1.1 + Math.sin(progress * Math.PI) * 2.15;
       this.rightArmPivot.rotation.z = -0.25 + Math.sin(progress * Math.PI) * 0.72;
-    } else if (this.blocking && this.weaponName === "sword") {
+    } else if (this.blocking && (this.weaponName === "sword" || this.weaponName === "voidblade")) {
       this.rightArmPivot.rotation.x += (-1.15 - this.rightArmPivot.rotation.x) * Math.min(1, dt * 15);
       this.rightArmPivot.rotation.z += (-0.85 - this.rightArmPivot.rotation.z) * Math.min(1, dt * 15);
     } else {
@@ -551,7 +582,7 @@ export class RemotePlayer {
 
     const local = this.weapon.userData.muzzleLocal
       ? this.weapon.userData.muzzleLocal.clone()
-      : this.weaponName === "sword" ? new THREE.Vector3(0, 1.45, 0) : new THREE.Vector3(0, 0, -1.25);
+      : (this.weaponName === "sword" || this.weaponName === "voidblade") ? new THREE.Vector3(0, 1.45, 0) : new THREE.Vector3(0, 0, -1.25);
 
     return this.weapon.localToWorld(local);
   }
@@ -616,7 +647,7 @@ export class FirstPersonWeapon {
     for (const name of Object.keys(WEAPON_INFO)) {
       const model = createWeaponModel(name, true);
       model.visible = false;
-      const scale = name === "sword" ? 0.7 : name === "railgun" || name === "lmg" ? 0.62 : 0.72;
+      const scale = (name === "sword" || name === "voidblade") ? 0.7 : name === "railgun" || name === "lmg" ? 0.62 : 0.72;
       model.scale.setScalar(scale);
       this.root.add(model);
       this.models.set(name, model);
@@ -695,13 +726,21 @@ export class FirstPersonWeapon {
     const bobX = moving ? Math.sin(this.bob) * 0.035 * Math.min(1, movementSpeed / 5) : 0;
     const bobY = moving ? Math.abs(Math.cos(this.bob)) * 0.026 * Math.min(1, movementSpeed / 5) : 0;
 
-    const isSword = this.current === "sword";
-    const hipPosition = isSword
-      ? new THREE.Vector3(0.52, -0.52, -0.72)
-      : new THREE.Vector3(0.42, -0.42, -0.78);
-    const aimPosition = isSword
-      ? hipPosition
-      : new THREE.Vector3(0.02, -0.31, -0.62);
+    const isSword = this.current === "sword" || this.current === "voidblade";
+    const hipLayouts = {
+      pistol: [0.34, -0.39, -0.67], smg: [0.41, -0.43, -0.8], rifle: [0.43, -0.43, -0.84],
+      burst: [0.43, -0.43, -0.84], shotgun: [0.45, -0.46, -0.88], lmg: [0.47, -0.48, -0.9],
+      marksman: [0.43, -0.43, -0.88], railgun: [0.45, -0.46, -0.92]
+    };
+    const aimLayouts = {
+      pistol: [0.0, -0.285, -0.55], smg: [0.0, -0.29, -0.59], rifle: [0.0, -0.305, -0.61],
+      burst: [0.0, -0.305, -0.61], shotgun: [0.0, -0.32, -0.64], lmg: [0.0, -0.32, -0.65],
+      marksman: [0.0, -0.34, -0.7], railgun: [0.0, -0.35, -0.72]
+    };
+    const hip = hipLayouts[this.current] || [0.42, -0.42, -0.78];
+    const ads = aimLayouts[this.current] || [0.0, -0.31, -0.62];
+    const hipPosition = isSword ? new THREE.Vector3(0.52, -0.52, -0.72) : new THREE.Vector3(...hip);
+    const aimPosition = isSword ? hipPosition.clone() : new THREE.Vector3(...ads);
 
     const targetPosition = hipPosition.clone().lerp(aimPosition, this.aim);
     targetPosition.x += bobX + this.swayX + this.recoilYaw * 0.16;
@@ -709,10 +748,11 @@ export class FirstPersonWeapon {
     targetPosition.z += this.recoilPosition * 0.095;
     targetPosition.y -= (1 - this.switchBlend) * 0.34;
 
+    const hipYaw = -0.12 - this.swayX * 1.8 + this.recoilYaw;
     const targetRotation = new THREE.Euler(
       -0.08 - this.swayY * 1.8 + this.recoilPosition * 0.075,
-      -0.12 - this.swayX * 1.8 + this.recoilYaw,
-      isSword ? -0.22 : 0.02
+      THREE.MathUtils.lerp(hipYaw, this.recoilYaw * 0.32, this.aim),
+      isSword ? -0.22 : THREE.MathUtils.lerp(0.02, 0, this.aim)
     );
 
     if (this.swing > 0) {
@@ -742,6 +782,14 @@ export class FirstPersonWeapon {
     this.leftForearm.position.z += ((-0.45 + handKick * 0.55) - this.leftForearm.position.z) * (1 - Math.exp(-dt * 20));
     this.leftForearm.visible = !isSword;
     this.rightForearm.visible = true;
+    const adsHandShift = this.aim * 0.08;
+    this.leftForearm.position.x += ((-0.24 + adsHandShift) - this.leftForearm.position.x) * (1 - Math.exp(-dt * 18));
+    this.rightForearm.position.x += ((0.31 - adsHandShift) - this.rightForearm.position.x) * (1 - Math.exp(-dt * 18));
+
+    if (model.userData.rareAura) {
+      model.userData.rareAura.rotation.z += dt * 2.8;
+      model.userData.rareAura.material.opacity = 0.58 + Math.sin(performance.now() * 0.008) * 0.2;
+    }
 
     const positionBlend = 1 - Math.exp(-dt * 21);
     const rotationBlend = 1 - Math.exp(-dt * 22);
@@ -755,7 +803,7 @@ export class FirstPersonWeapon {
     const model = this.models.get(this.current);
     const local = model.userData.muzzleLocal
       ? model.userData.muzzleLocal.clone()
-      : this.current === "sword" ? new THREE.Vector3(0, 1.5, 0) : new THREE.Vector3(0, 0, -1.2);
+      : (this.current === "sword" || this.current === "voidblade") ? new THREE.Vector3(0, 1.7, 0) : new THREE.Vector3(0, 0, -1.2);
 
     this.camera.updateMatrixWorld(true);
     return model.localToWorld(local);

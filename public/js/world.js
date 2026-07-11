@@ -1,5 +1,5 @@
 import * as THREE from "/vendor/three.module.js";
-import { COLLIDERS, MOVEMENT, PICKUP_COLORS, WEAPON_INFO, POWER_INFO } from "./config.js";
+import { COLLIDERS, MOVEMENT, PICKUP_COLORS, WEAPON_INFO, POWER_INFO, GRAPPLE_ANCHORS } from "./config.js";
 
 const CHUNK_SIZE = 12;
 
@@ -10,40 +10,41 @@ function seededNoise(x, y, seed = 1) {
 
 function makePixelTexture(base, accent, seed = 1) {
   const canvas = document.createElement("canvas");
-  canvas.width = 64;
-  canvas.height = 64;
+  canvas.width = 128;
+  canvas.height = 128;
   const context = canvas.getContext("2d");
   context.fillStyle = base;
-  context.fillRect(0, 0, 64, 64);
+  context.fillRect(0, 0, 128, 128);
 
-  for (let y = 0; y < 64; y += 4) {
-    for (let x = 0; x < 64; x += 4) {
+  for (let y = 0; y < 128; y += 3) {
+    for (let x = 0; x < 128; x += 3) {
       const noise = seededNoise(x, y, seed);
       if (noise > 0.58) {
         context.globalAlpha = 0.18 + noise * 0.2;
         context.fillStyle = accent;
-        context.fillRect(x, y, 4, 4);
+        context.fillRect(x, y, 3, 3);
       }
     }
   }
 
   context.globalAlpha = 1;
   context.strokeStyle = "rgba(255,255,255,.05)";
-  for (let i = 0; i <= 64; i += 8) {
+  for (let i = 0; i <= 128; i += 16) {
     context.beginPath();
     context.moveTo(i, 0);
-    context.lineTo(i, 64);
+    context.lineTo(i, 128);
     context.stroke();
     context.beginPath();
     context.moveTo(0, i);
-    context.lineTo(64, i);
+    context.lineTo(128, i);
     context.stroke();
   }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.NearestMipmapNearestFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.anisotropy = 8;
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   return texture;
@@ -59,26 +60,36 @@ function createMaterials() {
   return {
     grass: new THREE.MeshStandardMaterial({
       map: grass,
-      roughness: 0.92,
+      bumpMap: grass,
+      bumpScale: 0.045,
+      roughness: 0.86,
       metalness: 0.02
     }),
     dirt: new THREE.MeshStandardMaterial({
       map: dirt,
-      roughness: 1
+      bumpMap: dirt,
+      bumpScale: 0.06,
+      roughness: 0.94
     }),
     stone: new THREE.MeshStandardMaterial({
       map: stone,
-      roughness: 0.78,
+      bumpMap: stone,
+      bumpScale: 0.08,
+      roughness: 0.7,
       metalness: 0.08
     }),
     darkStone: new THREE.MeshStandardMaterial({
       map: darkStone,
-      roughness: 0.68,
+      bumpMap: darkStone,
+      bumpScale: 0.07,
+      roughness: 0.58,
       metalness: 0.16
     }),
     metal: new THREE.MeshStandardMaterial({
       map: metal,
-      roughness: 0.42,
+      bumpMap: metal,
+      bumpScale: 0.025,
+      roughness: 0.31,
       metalness: 0.62
     }),
     red: new THREE.MeshStandardMaterial({
@@ -255,6 +266,40 @@ function buildDecorations(scene, materials, quality) {
   return groups;
 }
 
+function createGrappleAnchors(scene, materials, quality) {
+  const groups = [];
+  for (const anchor of GRAPPLE_ANCHORS) {
+    const group = new THREE.Group();
+    const core = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.42, 1),
+      new THREE.MeshStandardMaterial({
+        color: 0x8beaff,
+        emissive: 0x1aaee8,
+        emissiveIntensity: 2.2,
+        roughness: 0.22,
+        metalness: 0.7
+      })
+    );
+    const ringA = new THREE.Mesh(
+      new THREE.TorusGeometry(0.7, 0.055, 10, 32),
+      new THREE.MeshBasicMaterial({ color: 0x72dfff, transparent: true, opacity: 0.82 })
+    );
+    const ringB = ringA.clone();
+    ringA.rotation.x = Math.PI / 2;
+    ringB.rotation.y = Math.PI / 2;
+    const light = new THREE.PointLight(0x5edaff, 2.4, 10, 2);
+    group.add(core, ringA, ringB, light);
+    group.position.set(anchor.x, anchor.y, anchor.z);
+    group.traverse((object) => { if (object.isMesh) object.castShadow = quality.shadows; });
+    group.userData.ringA = ringA;
+    group.userData.ringB = ringB;
+    group.userData.phase = Math.random() * Math.PI * 2;
+    scene.add(group);
+    groups.push(group);
+  }
+  return groups;
+}
+
 export function buildWorld(scene, quality) {
   const materials = createMaterials();
   const store = new Map();
@@ -275,6 +320,7 @@ export function buildWorld(scene, quality) {
   const meshes = buildInstanceMeshes(scene, store, materials, quality);
   const decorations = buildDecorations(scene, materials, quality);
   const lights = createArenaLights(scene);
+  const grappleAnchors = createGrappleAnchors(scene, materials, quality);
 
   const ground = new THREE.Mesh(
     new THREE.CylinderGeometry(MOVEMENT.arenaRadius + 0.8, MOVEMENT.arenaRadius + 0.8, 1.2, 96),
@@ -288,6 +334,7 @@ export function buildWorld(scene, quality) {
     meshes,
     decorations,
     lights,
+    grappleAnchors,
     materials,
     ground
   };
@@ -381,9 +428,11 @@ export class PickupRenderer {
     });
 
     const group = new THREE.Group();
-    const coreGeometry = pickup.type === "power"
-      ? new THREE.IcosahedronGeometry(0.48, 1)
-      : this.geometry;
+    const coreGeometry = pickup.rare
+      ? new THREE.OctahedronGeometry(0.62, 2)
+      : pickup.type === "power"
+        ? new THREE.IcosahedronGeometry(0.48, 1)
+        : this.geometry;
     const core = new THREE.Mesh(coreGeometry, material);
     core.castShadow = this.quality.shadows;
 
@@ -408,6 +457,7 @@ export class PickupRenderer {
     group.userData.phase = Math.random() * Math.PI * 2;
     group.userData.type = pickup.type;
     group.userData.power = pickup.power || null;
+    group.userData.rare = Boolean(pickup.rare);
     this.scene.add(group);
     this.items.set(pickup.id, group);
   }
@@ -430,8 +480,8 @@ export class PickupRenderer {
       group.position.y = group.userData.baseY + Math.sin(time * 2 + group.userData.phase) * 0.14;
       const ring = group.children[1];
       ring.rotation.z = time * (group.userData.type === "power" ? 1.7 : 0.8);
-      if (group.userData.type === "power") {
-        const pulse = 1 + Math.sin(time * 4 + group.userData.phase) * 0.1;
+      if (group.userData.type === "power" || group.userData.rare) {
+        const pulse = 1 + Math.sin(time * (group.userData.rare ? 6 : 4) + group.userData.phase) * (group.userData.rare ? 0.16 : 0.1);
         group.children[0].scale.setScalar(pulse);
       }
     }

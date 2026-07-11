@@ -4,6 +4,7 @@ import {
   WEAPON_INFO,
   WEAPON_ORDER,
   POWER_INFO,
+  ABILITY_INFO,
   MOVEMENT
 } from "./config.js";
 import {
@@ -64,7 +65,8 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, quality.pixelRatio));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
+renderer.toneMappingExposure = 1.12;
+renderer.sortObjects = true;
 renderer.shadowMap.enabled = quality.shadows;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -138,6 +140,8 @@ const local = {
   },
   dashUntil: 0,
   dashDirection: { x: 0, z: 0 },
+  grapple: null,
+  grappleReadyAt: 0,
   jumpPressedAt: -Infinity,
   lastGroundedAt: performance.now(),
   slideUntil: 0,
@@ -189,6 +193,20 @@ let movementAccumulator = 0;
 const MOVEMENT_STEP = 1 / 60;
 let serverPowerups = {};
 let lastPowerHudSignature = "";
+let clientBloom = 0;
+const grappleLines = new Map();
+const grappleMaterial = new THREE.LineBasicMaterial({ color: 0x78e5ff, transparent: true, opacity: 0.92 });
+let killCam = {
+  active: false,
+  frames: [],
+  events: [],
+  eventIndex: 0,
+  startedAt: 0,
+  duration: 2200,
+  killer: null,
+  weapon: "rifle",
+  restoreWeapon: "rifle"
+};
 
 const radarContext = $("radar").getContext("2d");
 
@@ -283,7 +301,7 @@ function buildWeaponSlots() {
     slot.dataset.weapon = weaponName;
 
     const key = document.createElement("strong");
-    key.textContent = `${index + 1} ${info.icon}`;
+    key.textContent = `${index === 9 ? 0 : index + 1} ${info.icon}`;
 
     const label = document.createElement("span");
     label.textContent = info.name.replace("Vector ", "").replace("Pulse ", "");
@@ -393,6 +411,67 @@ function updatePowerHud() {
   }
 
   container.classList.toggle("empty", active.length === 0);
+}
+
+function updateGrappleHud() {
+  const now = Date.now();
+  const remaining = Math.max(0, local.grappleReadyAt - now);
+  const hud = $("grappleHud");
+  hud.classList.toggle("cooldown", remaining > 0);
+  hud.classList.toggle("active", Boolean(local.grapple));
+  $("grappleState").textContent = local.grapple
+    ? "PULLING · E CANCEL"
+    : remaining > 0
+      ? `${(remaining / 1000).toFixed(1)}s`
+      : "READY";
+}
+
+function createGrappleLine(id, target, endsAt) {
+  removeGrappleLine(id);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute([0,0,0,target.x,target.y,target.z], 3));
+  const line = new THREE.Line(geometry, grappleMaterial.clone());
+  line.frustumCulled = false;
+  line.userData.target = new THREE.Vector3(target.x, target.y, target.z);
+  line.userData.endsAt = endsAt;
+  scene.add(line);
+  grappleLines.set(id, line);
+}
+
+function removeGrappleLine(id) {
+  const line = grappleLines.get(id);
+  if (!line) return;
+  scene.remove(line);
+  line.geometry.dispose();
+  line.material.dispose();
+  grappleLines.delete(id);
+}
+
+function updateGrappleLines() {
+  const now = Date.now();
+  for (const [id, line] of grappleLines) {
+    if (now >= line.userData.endsAt) {
+      removeGrappleLine(id);
+      if (id === local.id) local.grapple = null;
+      continue;
+    }
+    let start;
+    if (id === local.id) {
+      start = settings.cameraMode === "first"
+        ? firstPersonWeapon.muzzleWorldPosition()
+        : new THREE.Vector3(local.x, local.y + 1.35, local.z);
+    } else {
+      const remote = remotePlayers.get(id);
+      start = remote
+        ? remote.group.position.clone().add(new THREE.Vector3(0, 1.35, 0))
+        : new THREE.Vector3();
+    }
+    const positions = line.geometry.attributes.position.array;
+    positions[0]=start.x; positions[1]=start.y; positions[2]=start.z;
+    positions[3]=line.userData.target.x; positions[4]=line.userData.target.y; positions[5]=line.userData.target.z;
+    line.geometry.attributes.position.needsUpdate = true;
+    line.material.opacity = 0.72 + Math.sin(performance.now() * 0.025) * 0.18;
+  }
 }
 
 function powerName(name) {
@@ -534,6 +613,8 @@ function applyPlayerData(player, sampleTime = performance.now()) {
     local.weapon = player.weapon;
     local.owned = new Set(player.owned || Array.from(local.owned));
     local.powers = { ...local.powers, ...(player.powers || {}) };
+    local.grappleReadyAt = Number(player.powers?.grappleReadyAt || local.grappleReadyAt || 0);
+    if (player.grapple) local.grapple = { ...player.grapple };
 
     setHealthArmor(player.health, player.armor);
     updateWeaponHud();
@@ -709,7 +790,7 @@ function applyFriction(value, friction, dt) {
 }
 
 function simulateLocalMovement(dt) {
-  if (!local.alive || pausedByMenu) return;
+  if (!local.alive || pausedByMenu || killCam.active) return;
 
   const now = performance.now();
   const epochNow = Date.now();
@@ -787,6 +868,36 @@ function simulateLocalMovement(dt) {
     }
   }
 
+  let gravityScale = 1;
+  if (local.grapple) {
+    const epochNow = Date.now();
+    if (epochNow >= local.grapple.endsAt) {
+      local.grapple = null;
+      removeGrappleLine(local.id);
+    } else {
+      const target = local.grapple.target;
+      const dx = target.x - local.x;
+      const dy = target.y - (local.y + 1.0);
+      const dz = target.z - local.z;
+      const distanceToTarget = Math.hypot(dx, dy, dz) || 1;
+      if (distanceToTarget < 1.45) {
+        local.grapple = null;
+        removeGrappleLine(local.id);
+      } else {
+        const pull = MOVEMENT.grapplePull * dt;
+        local.vx += dx / distanceToTarget * pull;
+        local.vy += dy / distanceToTarget * pull * 0.92;
+        local.vz += dz / distanceToTarget * pull;
+        const total = Math.hypot(local.vx, local.vy, local.vz);
+        if (total > MOVEMENT.grappleMaxSpeed) {
+          const scale = MOVEMENT.grappleMaxSpeed / total;
+          local.vx *= scale; local.vy *= scale; local.vz *= scale;
+        }
+        gravityScale = 0.28;
+      }
+    }
+  }
+
   const tryMove = (axis, amount) => {
     if (Math.abs(amount) < 0.000001) return;
     const nextX = axis === "x" ? local.x + amount : local.x;
@@ -837,7 +948,7 @@ function simulateLocalMovement(dt) {
   }
 
   const preFallVelocity = local.vy;
-  local.vy -= MOVEMENT.gravity * dt;
+  local.vy -= MOVEMENT.gravity * gravityScale * dt;
   local.y += local.vy * dt;
 
   const newSupport = supportHeight(local.x, local.z, local.y);
@@ -976,6 +1087,17 @@ function useDash() {
   showCombatText("DASH");
 }
 
+function useGrapple() {
+  if (!local.alive || killCam.active) return;
+  const now = Date.now();
+  if (!local.grapple && now < local.grappleReadyAt) {
+    showCombatText(`GRAPPLE ${(local.grappleReadyAt - now) / 1000 > 0 ? ((local.grappleReadyAt - now) / 1000).toFixed(1) : 0}s`);
+    return;
+  }
+  network.send("ability", { ability: "grapple", yaw: local.yaw, pitch: local.pitch });
+  if (local.grapple) showCombatText("GRAPPLE RELEASED");
+}
+
 function sendInput(now) {
   if (!local.id || now - lastInputSent < 33) return;
 
@@ -983,7 +1105,7 @@ function sendInput(now) {
 
   network.send("input", {
     seq: inputSequence,
-    input: local.input,
+    input: { ...local.input, aiming: rightMouseDown && WEAPON_INFO[local.weapon]?.kind === "gun" },
     yaw: local.yaw,
     pitch: local.pitch
   });
@@ -1025,7 +1147,7 @@ function reloadWeapon() {
 
 function attackSword() {
   const now = performance.now();
-  const info = WEAPON_INFO.sword;
+  const info = WEAPON_INFO[local.weapon] || WEAPON_INFO.sword;
 
   if (now < nextLocalAttackAt || local.blocking || local.reloading) return;
 
@@ -1036,8 +1158,8 @@ function attackSword() {
   nextLocalAttackAt = now + info.localCooldown + localCombo * 45;
   firstPersonWeapon.melee(localCombo);
   if (localAvatar) localAvatar.triggerSwing(localCombo);
-  audio.playWeapon("sword");
-  network.send("melee", { combo: localCombo });
+  audio.playWeapon(local.weapon === "voidblade" ? "railgun" : "sword");
+  network.send("melee", { combo: localCombo, weapon: local.weapon });
 }
 
 function fireGun() {
@@ -1064,9 +1186,14 @@ function fireGun() {
   if (localAvatar) localAvatar.triggerFire();
   audio.playWeapon(local.weapon);
   recoilPitch += info.recoil;
+  clientBloom = Math.min(
+    Number(serverWeapons[local.weapon]?.maxBloom || 0.04),
+    clientBloom + Number(serverWeapons[local.weapon]?.bloomPerShot || 0.003)
+  );
   network.send("fire", {
     weapon: local.weapon,
-    latency: network.latency
+    latency: network.latency,
+    aiming: rightMouseDown
   });
   updateWeaponHud();
 
@@ -1085,7 +1212,7 @@ function fireGun() {
 function attemptAttack() {
   if (!local.alive || pausedByMenu) return;
 
-  if (local.weapon === "sword") {
+  if (WEAPON_INFO[local.weapon]?.kind === "melee") {
     attackSword();
   } else {
     fireGun();
@@ -1095,7 +1222,7 @@ function attemptAttack() {
 function setBlockOrAim(active) {
   rightMouseDown = active;
 
-  if (local.weapon === "sword") {
+  if (WEAPON_INFO[local.weapon]?.kind === "melee") {
     local.blocking = active;
     firstPersonWeapon.setBlocking(active);
     network.send("block", { active });
@@ -1114,8 +1241,77 @@ function updateAutomaticFire() {
   }
 }
 
+function startKillCam(message) {
+  if (!message.frames?.length) return;
+  killCam = {
+    active: true,
+    frames: message.frames,
+    events: message.events || [],
+    eventIndex: 0,
+    startedAt: performance.now(),
+    duration: Math.max(1000, Number(message.deathTime) - Number(message.startTime)),
+    killer: message.killer,
+    weapon: message.weapon || message.frames.at(-1)?.weapon || "rifle",
+    restoreWeapon: local.weapon
+  };
+  $("killCamKiller").textContent = `${message.killer?.name || "Enemy"} · ${WEAPON_INFO[killCam.weapon]?.name || killCam.weapon}`;
+  $("killCam").classList.remove("hidden");
+  $("deathScreen").classList.add("hidden");
+  $("scopeOverlay").classList.add("hidden");
+  firstPersonWeapon.setVisible(true);
+  firstPersonWeapon.setWeapon(killCam.weapon);
+  document.exitPointerLock();
+}
+
+function finishKillCam(skipped = false) {
+  if (!killCam.active) return;
+  killCam.active = false;
+  $("killCam").classList.add("hidden");
+  firstPersonWeapon.setWeapon(local.weapon || killCam.restoreWeapon);
+  firstPersonWeapon.setVisible(settings.cameraMode === "first");
+  if (!local.alive) setDeathState(true, killCam.killer?.name || "");
+  if (skipped) showCombatText("KILLCAM SKIPPED");
+}
+
+function updateKillCam(now, dt) {
+  if (!killCam.active) return false;
+  const elapsed = now - killCam.startedAt;
+  const progress = THREE.MathUtils.clamp(elapsed / killCam.duration, 0, 1);
+  $("killCamProgress").style.width = `${progress * 100}%`;
+  const targetServerTime = killCam.frames[0].t + elapsed;
+  let older = killCam.frames[0];
+  let newer = killCam.frames[killCam.frames.length - 1];
+  for (let i = 0; i < killCam.frames.length - 1; i++) {
+    if (killCam.frames[i].t <= targetServerTime && killCam.frames[i + 1].t >= targetServerTime) {
+      older = killCam.frames[i]; newer = killCam.frames[i + 1]; break;
+    }
+  }
+  const span = Math.max(1, newer.t - older.t);
+  const alpha = THREE.MathUtils.clamp((targetServerTime - older.t) / span, 0, 1);
+  const x = THREE.MathUtils.lerp(older.x, newer.x, alpha);
+  const y = THREE.MathUtils.lerp(older.y, newer.y, alpha);
+  const z = THREE.MathUtils.lerp(older.z, newer.z, alpha);
+  let yawDelta = newer.yaw - older.yaw;
+  yawDelta = Math.atan2(Math.sin(yawDelta), Math.cos(yawDelta));
+  const yaw = older.yaw + yawDelta * alpha;
+  const pitch = THREE.MathUtils.lerp(older.pitch, newer.pitch, alpha);
+  camera.position.set(x, y + (newer.crouching ? 1.18 : 1.62), z);
+  camera.rotation.set(pitch, yaw, 0, "YXZ");
+  const weapon = newer.weapon || killCam.weapon;
+  if (firstPersonWeapon.current !== weapon) firstPersonWeapon.setWeapon(weapon);
+  while (killCam.eventIndex < killCam.events.length && killCam.events[killCam.eventIndex].t <= targetServerTime) {
+    const event = killCam.events[killCam.eventIndex++];
+    if (event.type === "fire") firstPersonWeapon.fire();
+    if (event.type === "melee") firstPersonWeapon.melee(event.combo || 0);
+  }
+  firstPersonWeapon.update(dt, Math.hypot(newer.vx || 0, newer.vz || 0), true, Boolean(newer.aiming));
+  if (progress >= 1) finishKillCam(false);
+  return true;
+}
+
 function setDeathState(active, killerName = "") {
   if (active) {
+    if (killCam.active) return;
     deathAt = performance.now();
     $("deathTitle").textContent = killerName
       ? `Eliminated by ${killerName}`
@@ -1180,6 +1376,7 @@ function setupNetworkHandlers() {
     local.name = message.player.name;
     local.team = message.player.team;
     local.powers = { ...local.powers, ...(message.player.powers || {}) };
+    local.grappleReadyAt = Number(message.player.powers?.grappleReadyAt || 0);
 
     if (!localAvatar) {
       localAvatar = new LocalPlayerAvatar(scene, message.player, quality);
@@ -1351,6 +1548,33 @@ function setupNetworkHandlers() {
     }
   });
 
+  network.on("grapple_start", (message) => {
+    createGrappleLine(message.id, message.target, message.endsAt);
+    if (message.id === local.id) {
+      local.grapple = { target: message.target, endsAt: message.endsAt };
+      local.grappleReadyAt = message.readyAt;
+      showCombatText("GRAPPLE ATTACHED");
+      audio.playDash();
+    }
+  });
+
+  network.on("grapple_end", (message) => {
+    removeGrappleLine(message.id);
+    if (message.id === local.id) local.grapple = null;
+  });
+
+  network.on("grapple_miss", () => {
+    showCombatText("NO GRAPPLE SURFACE");
+  });
+
+  network.on("ability_denied", (message) => {
+    if (message.ability === "grapple") local.grappleReadyAt = Number(message.readyAt || local.grappleReadyAt);
+  });
+
+  network.on("killcam", (message) => {
+    startKillCam(message);
+  });
+
   network.on("parry", (message) => {
     audio.playParry();
 
@@ -1380,7 +1604,7 @@ function setupNetworkHandlers() {
 
     if (message.victim.id === local.id) {
       local.alive = false;
-      setDeathState(true, message.killer.name);
+      if (!killCam.active) setDeathState(true, message.killer.name);
     }
 
     if (message.killer.id === local.id) {
@@ -1414,6 +1638,10 @@ function setupNetworkHandlers() {
       local.blocking = false;
       local.powers = { ...local.powers, ...(message.player.powers || {}) };
       local.dashUntil = 0;
+      local.grapple = null;
+      local.grappleReadyAt = Number(message.player.powers?.grappleReadyAt || 0);
+      removeGrappleLine(local.id);
+      if (killCam.active) finishKillCam(false);
       local.correction.set(0, 0, 0);
       firstPersonWeapon.setWeapon(local.weapon);
       firstPersonWeapon.setReloading(false);
@@ -1583,6 +1811,12 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (killCam.active && ["KeyF", "Space", "Escape"].includes(event.code)) {
+    event.preventDefault();
+    finishKillCam(true);
+    return;
+  }
+
   keys[event.code] = true;
   handleKey(event.code, true);
 
@@ -1592,6 +1826,10 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "KeyQ" && !event.repeat) {
     useDash();
+  }
+
+  if (event.code === "KeyE" && !event.repeat) {
+    useGrapple();
   }
 
   if (event.code === "Space" && !event.repeat) {
@@ -1615,8 +1853,10 @@ document.addEventListener("keydown", (event) => {
 
   const number = Number(event.code.replace("Digit", ""));
 
-  if (number >= 1 && number <= WEAPON_ORDER.length) {
+  if (number >= 1 && number <= 9) {
     switchWeapon(WEAPON_ORDER[number - 1]);
+  } else if (event.code === "Digit0") {
+    switchWeapon("voidblade");
   }
 });
 
@@ -1640,6 +1880,10 @@ document.addEventListener("mousemove", (event) => {
 });
 
 document.addEventListener("mousedown", (event) => {
+  if (killCam.active) {
+    finishKillCam(true);
+    return;
+  }
   if (document.pointerLockElement !== document.body) {
     if (local.alive && pointerStarted) document.body.requestPointerLock();
     return;
@@ -1714,17 +1958,22 @@ function updateGraphicsScaling(now) {
 
 function updateCrosshair() {
   const speed = Math.hypot(local.vx, local.vz);
-  const info = WEAPON_INFO[local.weapon];
-  const firingSpread = Math.max(0, (nextLocalAttackAt - performance.now()) / 100);
-  const gap = 7 + Math.min(13, speed * 0.7 + firingSpread * (info.kind === "gun" ? 1.4 : 0.4));
-
+  const info = WEAPON_INFO[local.weapon] || WEAPON_INFO.rifle;
+  const serverInfo = serverWeapons[local.weapon] || {};
+  const aiming = rightMouseDown && info.kind === "gun";
+  let spread = aiming ? Number(serverInfo.adsSpread || 0.003) : Number(serverInfo.hipSpread || 0.015);
+  spread += Math.min(1, speed / MOVEMENT.sprintSpeed) * Number(serverInfo.moveSpread || 0.01);
+  if (!local.grounded) spread += Number(serverInfo.airSpread || 0.02);
+  if (local.input.crouch && local.grounded) spread *= 0.68;
+  spread += clientBloom;
+  const gap = aiming ? 3 : 6 + Math.min(18, spread * 420);
   $("crosshair").style.setProperty("--gap", `${gap}px`);
-  $("crosshair").style.opacity = local.blocking ? "0.45" : "1";
+  $("crosshair").style.opacity = local.blocking ? "0.45" : aiming ? "0.15" : "1";
 }
 
 function updateCameraFov(dt) {
   const info = WEAPON_INFO[local.weapon] || WEAPON_INFO.rifle;
-  const aiming = rightMouseDown && info.kind === "gun";
+  const aiming = rightMouseDown && info.kind === "gun" && local.alive && !killCam.active;
   const sprinting = local.input.sprint && Math.hypot(local.vx, local.vz) > 4 && !aiming;
   let targetFov = settings.fov;
 
@@ -1732,9 +1981,21 @@ function updateCameraFov(dt) {
   else if (performance.now() < local.dashUntil) targetFov = settings.fov + 13;
   else if (sprinting) targetFov = settings.fov + (activeLocalPower("speed") ? 10 : 7);
 
-  camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 10);
+  camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-dt * (aiming ? 14 : 10)));
   camera.updateProjectionMatrix();
   firstPersonWeapon.setAim(aiming);
+
+  const scope = $("scopeOverlay");
+  const scopeType = info.scope || "none";
+  const showScope = aiming && settings.cameraMode === "first" && scopeType !== "none";
+  scope.classList.toggle("hidden", !showScope);
+  scope.classList.toggle("active", showScope);
+  document.body.classList.toggle("ads-active", showScope);
+  for (const name of ["holo", "optic", "sniper", "rail"]) {
+    document.body.classList.toggle(`scope-${name}`, showScope && scopeType === name);
+  }
+  const zoom = Math.max(1, settings.fov / Math.max(1, info.fov));
+  $("scopeLabel").textContent = `${zoom.toFixed(1)}× · ${info.name}`;
 }
 
 function updateRemotePlayers(now, dt) {
@@ -1789,13 +2050,16 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const now = performance.now();
 
+  const playingKillCam = updateKillCam(now, dt);
   movementAccumulator = Math.min(0.2, movementAccumulator + dt);
   let movementSteps = 0;
-  while (movementAccumulator >= MOVEMENT_STEP && movementSteps < 6) {
+  while (!playingKillCam && movementAccumulator >= MOVEMENT_STEP && movementSteps < 6) {
     simulateLocalMovement(MOVEMENT_STEP);
     movementAccumulator -= MOVEMENT_STEP;
     movementSteps++;
   }
+  if (playingKillCam) movementAccumulator = 0;
+  clientBloom = Math.max(0, clientBloom - Number(serverWeapons[local.weapon]?.bloomRecovery || 0.03) * dt);
   sendInput(now);
   updateAutomaticFire();
   updateRemotePlayers(now, dt);
@@ -1806,17 +2070,26 @@ function animate() {
   updateRadar();
   updateCrosshair();
   updatePowerHud();
-  updateCameraFov(dt);
+  updateGrappleHud();
+  updateGrappleLines();
+  for (const anchor of world.grappleAnchors || []) {
+    anchor.userData.ringA.rotation.z += dt * 1.4;
+    anchor.userData.ringB.rotation.z -= dt * 1.1;
+    anchor.rotation.y += dt * 0.35;
+  }
+  if (!playingKillCam) updateCameraFov(dt);
   updateDeathCountdown(now);
   updateDayNight(now);
 
   const speed = Math.hypot(local.vx, local.vz);
-  firstPersonWeapon.update(
-    dt,
-    speed,
-    local.grounded,
-    rightMouseDown && WEAPON_INFO[local.weapon]?.kind === "gun"
-  );
+  if (!playingKillCam) {
+    firstPersonWeapon.update(
+      dt,
+      speed,
+      local.grounded,
+      rightMouseDown && WEAPON_INFO[local.weapon]?.kind === "gun"
+    );
+  }
 
   if (local.reloading && localReloadEndsAt && now >= localReloadEndsAt) {
     local.reloading = false;
@@ -1832,4 +2105,5 @@ buildWeaponSlots();
 setHealthArmor(100, 25);
 updateRendererResolution();
 setCameraMode(settings.cameraMode, false);
+updateGrappleHud();
 animate();

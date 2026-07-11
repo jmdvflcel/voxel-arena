@@ -18,9 +18,9 @@ const INTEREST_RADIUS = 64;
 const MATCH_LENGTH_MS = 5 * 60 * 1000;
 const ROUND_BREAK_MS = 9000;
 const SCORE_LIMIT = 30;
-const RESPAWN_MS = 3000;
+const RESPAWN_MS = 4700;
 const SPAWN_PROTECTION_MS = 1600;
-const PLAYER_RADIUS = 0.33;
+const PLAYER_RADIUS = 0.32;
 const STAND_HEIGHT = 1.8;
 const CROUCH_HEIGHT = 1.25;
 const GRAVITY = 22;
@@ -33,7 +33,7 @@ const AIR_ACCEL = 10;
 const GROUND_FRICTION = 13.5;
 const AIR_FRICTION = 1.05;
 const JUMP_SPEED = 7.75;
-const ARENA_RADIUS = 29;
+const ARENA_RADIUS = 34;
 const DASH_SPEED = 18;
 const DASH_DURATION_MS = 165;
 const DASH_COOLDOWN_MS = 1600;
@@ -44,51 +44,27 @@ const POWER_JUMP_MULTIPLIER = 1.28;
 const OVERSHIELD_CAP = 200;
 const REGEN_PER_SECOND = 12;
 const REGEN_DELAY_MS = 2200;
+const GRAPPLE_RANGE = 38;
+const GRAPPLE_COOLDOWN_MS = 2800;
+const GRAPPLE_DURATION_MS = 1850;
+const GRAPPLE_PULL = 34;
+const GRAPPLE_MAX_SPEED = 18;
+const GRAPPLE_STOP_DISTANCE = 1.45;
+const KILLCAM_WINDOW_MS = 2200;
+const HISTORY_WINDOW_MS = 3400;
 
 const WEAPONS = {
-  sword: {
-    type: "melee",
-    cooldown: 390,
-    comboReset: 850,
-    ranges: [2.75, 2.9, 3.1],
-    damages: [27, 31, 40],
-    arcs: [0.48, 0.42, 0.34]
-  },
-  pistol: {
-    type: "hitscan", damage: 28, headMultiplier: 1.65, cooldown: 280,
-    magazine: 12, reserve: 72, reload: 1350, range: 76, spread: 0.007, pellets: 1
-  },
-  smg: {
-    type: "hitscan", damage: 9, headMultiplier: 1.35, cooldown: 68,
-    magazine: 36, reserve: 180, reload: 1750, range: 58, spread: 0.026, pellets: 1
-  },
-  rifle: {
-    type: "hitscan", damage: 14, headMultiplier: 1.48, cooldown: 94,
-    magazine: 30, reserve: 150, reload: 2000, range: 88, spread: 0.016, pellets: 1
-  },
-  burst: {
-    type: "hitscan", damage: 13, headMultiplier: 1.48, cooldown: 390,
-    magazine: 27, reserve: 135, reload: 2050, range: 92, spread: 0.012, pellets: 3,
-    ammoPerShot: 3
-  },
-  shotgun: {
-    type: "hitscan", damage: 10, headMultiplier: 1.18, cooldown: 820,
-    magazine: 6, reserve: 42, reload: 2350, range: 36, spread: 0.082, pellets: 10
-  },
-  lmg: {
-    type: "hitscan", damage: 17, headMultiplier: 1.34, cooldown: 118,
-    magazine: 60, reserve: 240, reload: 3200, range: 90, spread: 0.024, pellets: 1
-  },
-  marksman: {
-    type: "hitscan", damage: 62, headMultiplier: 1.72, cooldown: 900,
-    magazine: 5, reserve: 30, reload: 2250, range: 125, spread: 0.0025, pellets: 1
-  },
-  railgun: {
-    type: "hitscan", damage: 88, headMultiplier: 1.45, cooldown: 1450,
-    magazine: 3, reserve: 15, reload: 2850, range: 145, spread: 0.0005, pellets: 1
-  }
+  sword: { type: "melee", cooldown: 390, comboReset: 850, ranges: [2.75, 2.9, 3.1], damages: [27, 31, 40], arcs: [0.48, 0.42, 0.34] },
+  voidblade: { type: "melee", cooldown: 520, comboReset: 900, ranges: [3.15, 3.25, 3.35], damages: [999, 999, 999], arcs: [0.44, 0.38, 0.30], instantKill: true },
+  pistol: { type: "hitscan", damage: 28, headMultiplier: 1.65, cooldown: 280, magazine: 12, reserve: 72, reload: 1350, range: 82, hipSpread: 0.010, adsSpread: 0.0015, moveSpread: 0.010, airSpread: 0.018, bloomPerShot: 0.0025, maxBloom: 0.014, bloomRecovery: 0.032, pellets: 1 },
+  smg: { type: "hitscan", damage: 9, headMultiplier: 1.35, cooldown: 68, magazine: 36, reserve: 180, reload: 1750, range: 62, hipSpread: 0.025, adsSpread: 0.009, moveSpread: 0.018, airSpread: 0.030, bloomPerShot: 0.0035, maxBloom: 0.034, bloomRecovery: 0.040, pellets: 1 },
+  rifle: { type: "hitscan", damage: 14, headMultiplier: 1.48, cooldown: 94, magazine: 30, reserve: 150, reload: 2000, range: 98, hipSpread: 0.016, adsSpread: 0.0035, moveSpread: 0.012, airSpread: 0.026, bloomPerShot: 0.003, maxBloom: 0.027, bloomRecovery: 0.034, pellets: 1 },
+  burst: { type: "hitscan", damage: 13, headMultiplier: 1.48, cooldown: 390, magazine: 27, reserve: 135, reload: 2050, range: 102, hipSpread: 0.014, adsSpread: 0.0025, moveSpread: 0.010, airSpread: 0.023, bloomPerShot: 0.002, maxBloom: 0.018, bloomRecovery: 0.036, pellets: 3, ammoPerShot: 3 },
+  shotgun: { type: "hitscan", damage: 10, headMultiplier: 1.18, cooldown: 820, magazine: 6, reserve: 42, reload: 2350, range: 38, hipSpread: 0.074, adsSpread: 0.052, moveSpread: 0.012, airSpread: 0.022, bloomPerShot: 0.005, maxBloom: 0.018, bloomRecovery: 0.03, pellets: 10 },
+  lmg: { type: "hitscan", damage: 17, headMultiplier: 1.34, cooldown: 118, magazine: 60, reserve: 240, reload: 3200, range: 96, hipSpread: 0.025, adsSpread: 0.0075, moveSpread: 0.016, airSpread: 0.028, bloomPerShot: 0.0038, maxBloom: 0.036, bloomRecovery: 0.026, pellets: 1 },
+  marksman: { type: "hitscan", damage: 62, headMultiplier: 1.72, cooldown: 900, magazine: 5, reserve: 30, reload: 2250, range: 145, hipSpread: 0.018, adsSpread: 0.00035, moveSpread: 0.016, airSpread: 0.035, bloomPerShot: 0.006, maxBloom: 0.018, bloomRecovery: 0.032, pellets: 1 },
+  railgun: { type: "hitscan", damage: 88, headMultiplier: 1.45, cooldown: 1450, magazine: 3, reserve: 15, reload: 2850, range: 165, hipSpread: 0.021, adsSpread: 0.00012, moveSpread: 0.020, airSpread: 0.040, bloomPerShot: 0.010, maxBloom: 0.024, bloomRecovery: 0.028, pellets: 1 }
 };
-
 const POWERUPS = {
   speed: { duration: 12000 },
   dash: { duration: 18000 },
@@ -116,19 +92,59 @@ const COLLIDERS = [
   { minX: -7, maxX: -5, minY: 0, maxY: 1, minZ: -1, maxZ: 5 },
   { minX: 5, maxX: 7, minY: 0, maxY: 1, minZ: -5, maxZ: 1 },
   { minX: -1, maxX: 5, minY: 0, maxY: 1, minZ: 5, maxZ: 7 },
-  { minX: -5, maxX: 1, minY: 0, maxY: 1, minZ: -7, maxZ: -5 }
+  { minX: -5, maxX: 1, minY: 0, maxY: 1, minZ: -7, maxZ: -5 },
+  { minX: -2, maxX: 2, minY: 0, maxY: 0.55, minZ: 6, maxZ: 7 },
+  { minX: -2, maxX: 2, minY: 0, maxY: 1.1, minZ: 5, maxZ: 6 },
+  { minX: -2, maxX: 2, minY: 0, maxY: 1.55, minZ: 4, maxZ: 5 },
+  { minX: -2, maxX: 2, minY: 0, maxY: 0.55, minZ: -7, maxZ: -6 },
+  { minX: -2, maxX: 2, minY: 0, maxY: 1.1, minZ: -6, maxZ: -5 },
+  { minX: -2, maxX: 2, minY: 0, maxY: 1.55, minZ: -5, maxZ: -4 },
+  { minX: 6, maxX: 7, minY: 0, maxY: 0.55, minZ: -2, maxZ: 2 },
+  { minX: 5, maxX: 6, minY: 0, maxY: 1.1, minZ: -2, maxZ: 2 },
+  { minX: 4, maxX: 5, minY: 0, maxY: 1.55, minZ: -2, maxZ: 2 },
+  { minX: -7, maxX: -6, minY: 0, maxY: 0.55, minZ: -2, maxZ: 2 },
+  { minX: -6, maxX: -5, minY: 0, maxY: 1.1, minZ: -2, maxZ: 2 },
+  { minX: -5, maxX: -4, minY: 0, maxY: 1.55, minZ: -2, maxZ: 2 },
+  { minX: -12, maxX: -10.8, minY: 0, maxY: 2.25, minZ: -1.5, maxZ: 1.5 },
+  { minX: -10.8, maxX: -9.6, minY: 0, maxY: 1.5, minZ: -1.5, maxZ: 1.5 },
+  { minX: -9.6, maxX: -8.4, minY: 0, maxY: 0.75, minZ: -1.5, maxZ: 1.5 },
+  { minX: 10.8, maxX: 12, minY: 0, maxY: 2.25, minZ: -1.5, maxZ: 1.5 },
+  { minX: 9.6, maxX: 10.8, minY: 0, maxY: 1.5, minZ: -1.5, maxZ: 1.5 },
+  { minX: 8.4, maxX: 9.6, minY: 0, maxY: 0.75, minZ: -1.5, maxZ: 1.5 },
+  { minX: -1.5, maxX: 1.5, minY: 0, maxY: 2.25, minZ: -12, maxZ: -10.8 },
+  { minX: -1.5, maxX: 1.5, minY: 0, maxY: 1.5, minZ: -10.8, maxZ: -9.6 },
+  { minX: -1.5, maxX: 1.5, minY: 0, maxY: 0.75, minZ: -9.6, maxZ: -8.4 },
+  { minX: -1.5, maxX: 1.5, minY: 0, maxY: 2.25, minZ: 10.8, maxZ: 12 },
+  { minX: -1.5, maxX: 1.5, minY: 0, maxY: 1.5, minZ: 9.6, maxZ: 10.8 },
+  { minX: -1.5, maxX: 1.5, minY: 0, maxY: 0.75, minZ: 8.4, maxZ: 9.6 },
+  { minX: -28, maxX: -24, minY: 0, maxY: 5, minZ: -28, maxZ: -24 },
+  { minX: 24, maxX: 28, minY: 0, maxY: 5, minZ: -28, maxZ: -24 },
+  { minX: -28, maxX: -24, minY: 0, maxY: 5, minZ: 24, maxZ: 28 },
+  { minX: 24, maxX: 28, minY: 0, maxY: 5, minZ: 24, maxZ: 28 },
+  { minX: -2.5, maxX: 2.5, minY: 0, maxY: 4.5, minZ: -28, maxZ: -25 },
+  { minX: -2.5, maxX: 2.5, minY: 0, maxY: 4.5, minZ: 25, maxZ: 28 },
+  { minX: -28, maxX: -25, minY: 0, maxY: 4.5, minZ: -2.5, maxZ: 2.5 },
+  { minX: 25, maxX: 28, minY: 0, maxY: 4.5, minZ: -2.5, maxZ: 2.5 },
+  { minX: -0.45, maxX: 0.45, minY: 8, maxY: 8.9, minZ: -23.45, maxZ: -22.55 },
+  { minX: -0.45, maxX: 0.45, minY: 8, maxY: 8.9, minZ: 22.55, maxZ: 23.45 },
+  { minX: -23.45, maxX: -22.55, minY: 8, maxY: 8.9, minZ: -0.45, maxZ: 0.45 },
+  { minX: 22.55, maxX: 23.45, minY: 8, maxY: 8.9, minZ: -0.45, maxZ: 0.45 },
+  { minX: -17.45, maxX: -16.55, minY: 7, maxY: 7.9, minZ: -17.45, maxZ: -16.55 },
+  { minX: 16.55, maxX: 17.45, minY: 7, maxY: 7.9, minZ: -17.45, maxZ: -16.55 },
+  { minX: -17.45, maxX: -16.55, minY: 7, maxY: 7.9, minZ: 16.55, maxZ: 17.45 },
+  { minX: 16.55, maxX: 17.45, minY: 7, maxY: 7.9, minZ: 16.55, maxZ: 17.45 }
 ];
 
 const SPAWNS = {
   red: [
-    { x: -22, y: 0, z: -8 },
-    { x: -22, y: 0, z: 0 },
-    { x: -22, y: 0, z: 8 }
+    { x: -28, y: 0, z: -8 },
+    { x: -28, y: 0, z: 0 },
+    { x: -28, y: 0, z: 8 }
   ],
   blue: [
-    { x: 22, y: 0, z: -8 },
-    { x: 22, y: 0, z: 0 },
-    { x: 22, y: 0, z: 8 }
+    { x: 28, y: 0, z: -8 },
+    { x: 28, y: 0, z: 0 },
+    { x: 28, y: 0, z: 8 }
   ]
 };
 
@@ -151,7 +167,8 @@ const PICKUP_TEMPLATES = [
   { id: "power-rapid", type: "power", power: "rapid", x: -10, y: 1.5, z: -15, respawn: 26000 },
   { id: "power-damage", type: "power", power: "damage", x: 10, y: 1.5, z: 15, respawn: 26000 },
   { id: "power-regen", type: "power", power: "regen", x: -10, y: 1.5, z: 15, respawn: 26000 },
-  { id: "power-jump", type: "power", power: "jump", x: 10, y: 1.5, z: -15, respawn: 26000 }
+  { id: "power-jump", type: "power", power: "jump", x: 10, y: 1.5, z: -15, respawn: 26000 },
+  { id: "void-reaper-rare", type: "weapon", weapon: "voidblade", x: 0, y: 5.8, z: 26, respawn: 45000, rare: true, activeWindow: 18000 }
 ];
 
 const app = express();
@@ -177,7 +194,7 @@ app.get("/api/status", (_req, res) => {
   res.json({
     status: "online",
     app: "Voxel Combat Arena",
-    version: "5.0.0",
+    version: "6.0.0",
     players: clients.size,
     availabilityZone: EC2_AZ,
     instanceId: INSTANCE_ID,
@@ -204,11 +221,16 @@ function createRound() {
 }
 
 function createPickups() {
-  return PICKUP_TEMPLATES.map((pickup) => ({
-    ...pickup,
-    active: true,
-    respawnAt: 0
-  }));
+  const now = Date.now();
+  return PICKUP_TEMPLATES.map((pickup) => {
+    const rareActive = Boolean(pickup.rare && Math.random() < 0.12);
+    return {
+      ...pickup,
+      active: pickup.rare ? rareActive : true,
+      respawnAt: pickup.rare && !rareActive ? now + 45000 + Math.random() * 30000 : 0,
+      despawnAt: rareActive ? now + pickup.activeWindow : 0
+    };
+  });
 }
 
 function send(ws, payload) {
@@ -294,7 +316,8 @@ function publicPowers(player) {
     damage: player.powers.damage,
     regen: player.powers.regen,
     jump: player.powers.jump,
-    dashReadyAt: player.dashReadyAt
+    dashReadyAt: player.dashReadyAt,
+    grappleReadyAt: player.grappleReadyAt
   };
 }
 
@@ -325,6 +348,7 @@ function publicPlayer(player) {
     crouching: player.input.crouch,
     reloading: player.reload ? player.reload.weapon : null,
     powers: publicPowers(player),
+    grapple: player.grapple ? { target: player.grapple.target, endsAt: player.grapple.endsAt } : null,
     ack: player.lastInputSeq
   };
 }
@@ -339,7 +363,8 @@ function pickupPublic(pickup) {
     x: pickup.x,
     y: pickup.y,
     z: pickup.z,
-    active: pickup.active
+    active: pickup.active,
+    rare: Boolean(pickup.rare)
   };
 }
 
@@ -458,6 +483,36 @@ function simulateMovement(player, dt, now) {
   if (stunned) maxSpeed = 0;
 
   const accel = (grounded ? MOVE_ACCEL : AIR_ACCEL) * (activePower(player, "jump", now) ? 1.18 : 1);
+  const currentWeapon = WEAPONS[player.weapon];
+  if (currentWeapon?.type === "hitscan") {
+    player.weaponBloom = Math.max(0, player.weaponBloom - currentWeapon.bloomRecovery * dt);
+  }
+
+  let grappleGravityScale = 1;
+  if (player.grapple) {
+    if (now >= player.grapple.endsAt) {
+      endGrapple(player, "timeout");
+    } else {
+      const dx = player.grapple.target.x - player.x;
+      const dy = player.grapple.target.y - (player.y + 1.0);
+      const dz = player.grapple.target.z - player.z;
+      const distanceToTarget = Math.hypot(dx, dy, dz) || 1;
+      if (distanceToTarget <= GRAPPLE_STOP_DISTANCE) {
+        endGrapple(player, "arrived");
+      } else {
+        const pull = GRAPPLE_PULL * dt;
+        player.vx += dx / distanceToTarget * pull;
+        player.vy += dy / distanceToTarget * pull * 0.92;
+        player.vz += dz / distanceToTarget * pull;
+        const totalSpeed = Math.hypot(player.vx, player.vy, player.vz);
+        if (totalSpeed > GRAPPLE_MAX_SPEED) {
+          const scale = GRAPPLE_MAX_SPEED / totalSpeed;
+          player.vx *= scale; player.vy *= scale; player.vz *= scale;
+        }
+        grappleGravityScale = 0.28;
+      }
+    }
+  }
 
   if (now < player.dashUntil) {
     player.vx = player.dashDirection.x * DASH_SPEED;
@@ -529,7 +584,7 @@ function simulateMovement(player, dt, now) {
     player.vz *= 0.4;
   }
 
-  player.vy -= GRAVITY * dt;
+  player.vy -= GRAVITY * grappleGravityScale * dt;
   player.y += player.vy * dt;
 
   const newSupport = supportHeight(player.x, player.z, player.y);
@@ -548,10 +603,13 @@ function simulateMovement(player, dt, now) {
     x: player.x,
     y: player.y,
     z: player.z,
+    yaw: player.yaw,
+    pitch: player.pitch,
+    weapon: player.weapon,
     crouching: player.input.crouch
   });
 
-  while (player.history.length && now - player.history[0].t > 1200) {
+  while (player.history.length && now - player.history[0].t > HISTORY_WINDOW_MS) {
     player.history.shift();
   }
 
@@ -745,16 +803,40 @@ function normalize(vector) {
   };
 }
 
+function cross(a, b) {
+  return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
+}
+
 function spreadDirection(baseDirection, spread) {
   if (spread <= 0) return baseDirection;
+  const reference = Math.abs(baseDirection.y) < 0.94 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 };
+  const right = normalize(cross(baseDirection, reference));
+  const up = normalize(cross(right, baseDirection));
+  const angle = Math.random() * Math.PI * 2;
+  const radius = Math.sqrt(Math.random()) * spread;
+  return normalize({
+    x: baseDirection.x + right.x * Math.cos(angle) * radius + up.x * Math.sin(angle) * radius,
+    y: baseDirection.y + right.y * Math.cos(angle) * radius + up.y * Math.sin(angle) * radius,
+    z: baseDirection.z + right.z * Math.cos(angle) * radius + up.z * Math.sin(angle) * radius
+  });
+}
 
-  const jitter = {
-    x: baseDirection.x + (Math.random() - 0.5) * spread,
-    y: baseDirection.y + (Math.random() - 0.5) * spread,
-    z: baseDirection.z + (Math.random() - 0.5) * spread
-  };
+function effectiveSpread(player, weapon, aiming, now) {
+  const speed = Math.hypot(player.vx, player.vz);
+  const grounded = player.y <= supportHeight(player.x, player.z, player.y) + 0.08;
+  let spread = aiming ? weapon.adsSpread : weapon.hipSpread;
+  spread += Math.min(1, speed / Math.max(SPRINT_SPEED, 1)) * weapon.moveSpread;
+  if (!grounded) spread += weapon.airSpread;
+  if (player.input.crouch && grounded) spread *= 0.68;
+  if (now - player.lastShotAt > 520) player.weaponBloom *= 0.25;
+  spread += player.weaponBloom;
+  return Math.max(0, spread);
+}
 
-  return normalize(jitter);
+function recordAction(player, event) {
+  player.actionHistory.push({ t: Date.now(), ...event });
+  const cutoff = Date.now() - HISTORY_WINDOW_MS;
+  while (player.actionHistory.length && player.actionHistory[0].t < cutoff) player.actionHistory.shift();
 }
 
 function sameTeam(a, b) {
@@ -858,6 +940,7 @@ function eliminatePlayer(attacker, target, meta) {
   target.respawnAt = now + RESPAWN_MS;
   target.blocking = false;
   target.reload = null;
+  if (target.grapple) endGrapple(target, "death");
   attacker.kills += 1;
   round.score[attacker.team] += 1;
 
@@ -874,6 +957,30 @@ function eliminatePlayer(attacker, target, meta) {
   }
 
   target.damageContributors.clear();
+
+  const killcamStart = now - KILLCAM_WINDOW_MS;
+  const killerFrames = attacker.history
+    .filter((frame) => frame.t >= killcamStart)
+    .map((frame) => ({
+      t: frame.t,
+      x: frame.x, y: frame.y, z: frame.z,
+      yaw: frame.yaw ?? attacker.yaw,
+      pitch: frame.pitch ?? attacker.pitch,
+      weapon: frame.weapon || attacker.weapon,
+      crouching: Boolean(frame.crouching)
+    }));
+  if (!killerFrames.length) {
+    killerFrames.push({ t: now, x: attacker.x, y: attacker.y, z: attacker.z, yaw: attacker.yaw, pitch: attacker.pitch, weapon: attacker.weapon, crouching: false });
+  }
+  send(target.ws, {
+    type: "killcam",
+    killer: { id: attacker.id, name: attacker.name, team: attacker.team },
+    weapon: meta.weapon || attacker.weapon,
+    startTime: killcamStart,
+    deathTime: now,
+    frames: killerFrames,
+    events: attacker.actionHistory.filter((event) => event.t >= killcamStart)
+  });
 
   broadcast({
     type: "kill",
@@ -909,6 +1016,10 @@ function respawnPlayer(player, immediate = false) {
     dashUntil: 0,
     dashReadyAt: 0,
     dashDirection: { x: 0, z: 0 },
+    grapple: null,
+    grappleReadyAt: 0,
+    weaponBloom: 0,
+    lastShotAt: 0,
     powers: makePowers(),
     lastDamagedAt: 0,
     lastGroundedAt: Date.now(),
@@ -918,7 +1029,8 @@ function respawnPlayer(player, immediate = false) {
   player.weapon = "rifle";
   player.owned = new Set(["sword", "pistol", "smg", "rifle"]);
   player.ammo = makeAmmo();
-  player.history = [{ t: Date.now(), x: player.x, y: player.y, z: player.z, crouching: false }];
+  player.history = [{ t: Date.now(), x: player.x, y: player.y, z: player.z, yaw: player.yaw, pitch: player.pitch, weapon: player.weapon, crouching: false }];
+  player.actionHistory = [];
 
   broadcast({
     type: "respawn",
@@ -1034,7 +1146,11 @@ function handleHitscan(attacker, weaponName, message) {
   const latency = clamp(Number(message.latency) || 0, 0, 240);
   const rewindTime = now - latency * 0.5;
 
+  const aiming = Boolean(message.aiming || attacker.input.aiming);
   const baseDirection = directionFromAngles(attacker.yaw, attacker.pitch);
+  const shotSpread = effectiveSpread(attacker, weapon, aiming, now);
+  attacker.weaponBloom = Math.min(weapon.maxBloom, attacker.weaponBloom + weapon.bloomPerShot);
+  attacker.lastShotAt = now;
   const origin = {
     x: attacker.x,
     y: attacker.y + 1.57,
@@ -1045,7 +1161,7 @@ function handleHitscan(attacker, weaponName, message) {
   const impacts = [];
 
   for (let pellet = 0; pellet < weapon.pellets; pellet++) {
-    const direction = spreadDirection(baseDirection, weapon.spread);
+    const direction = spreadDirection(baseDirection, shotSpread);
     const wallDistance = nearestWallDistance(origin, direction, weapon.range);
 
     let nearestHit = null;
@@ -1096,8 +1212,12 @@ function handleHitscan(attacker, weaponName, message) {
     origin,
     direction: baseDirection,
     impacts,
-    seed: Math.floor(Math.random() * 1000000)
+    seed: Math.floor(Math.random() * 1000000),
+    spread: shotSpread,
+    aiming,
+    serverTime: now
   });
+  recordAction(attacker, { type: "fire", weapon: weaponName, aiming });
 
   for (const entry of damageByTarget.values()) {
     applyDamage(attacker, entry.target, entry.damage, {
@@ -1117,10 +1237,11 @@ function handleHitscan(attacker, weaponName, message) {
 
 function handleMelee(attacker, message) {
   const now = Date.now();
-  const weapon = WEAPONS.sword;
+  const weaponName = attacker.weapon;
+  const weapon = WEAPONS[weaponName];
 
   if (!attacker.alive || round.status !== "playing") return;
-  if (attacker.weapon !== "sword" || !attacker.owned.has("sword")) return;
+  if (!weapon || weapon.type !== "melee" || !attacker.owned.has(weaponName)) return;
   if (attacker.stunnedUntil > now || attacker.blocking) return;
   if (now < attacker.nextAttackAt) return;
 
@@ -1142,8 +1263,10 @@ function handleMelee(attacker, message) {
   broadcast({
     type: "melee",
     id: attacker.id,
-    combo
+    combo,
+    weapon: weaponName
   });
+  recordAction(attacker, { type: "melee", weapon: weaponName, combo });
 
   let bestTarget = null;
   let bestDistance = Infinity;
@@ -1176,7 +1299,8 @@ function handleMelee(attacker, message) {
   if (bestTarget) {
     applyDamage(attacker, bestTarget, weapon.damages[combo], {
       kind: "melee",
-      weapon: "sword"
+      weapon: weaponName,
+      instantKill: Boolean(weapon.instantKill)
     });
   }
 }
@@ -1205,7 +1329,7 @@ function switchWeapon(player, weaponName) {
 function handleBlock(player, active) {
   const now = Date.now();
 
-  if (player.weapon !== "sword" || !player.alive || player.stunnedUntil > now) {
+  if (WEAPONS[player.weapon]?.type !== "melee" || !player.alive || player.stunnedUntil > now) {
     player.blocking = false;
     return;
   }
@@ -1227,10 +1351,24 @@ function checkPickups(now) {
   for (const pickup of pickups) {
     if (!pickup.active) {
       if (now >= pickup.respawnAt) {
-        pickup.active = true;
-        pickup.respawnAt = 0;
-        broadcast({ type: "pickup_state", pickup: pickupPublic(pickup) });
+        if (pickup.rare && Math.random() > 0.22) {
+          pickup.respawnAt = now + 30000 + Math.random() * 30000;
+        } else {
+          pickup.active = true;
+          pickup.respawnAt = 0;
+          pickup.despawnAt = pickup.rare ? now + pickup.activeWindow : 0;
+          broadcast({ type: "pickup_state", pickup: pickupPublic(pickup) });
+          if (pickup.rare) broadcast({ type: "system", text: "The rare Void Reaper has appeared on the north tower." });
+        }
       }
+      continue;
+    }
+
+    if (pickup.rare && pickup.despawnAt && now >= pickup.despawnAt) {
+      pickup.active = false;
+      pickup.despawnAt = 0;
+      pickup.respawnAt = now + 45000 + Math.random() * 45000;
+      broadcast({ type: "pickup_state", pickup: pickupPublic(pickup) });
       continue;
     }
 
@@ -1290,7 +1428,10 @@ function checkPickups(now) {
       if (!collected) continue;
 
       pickup.active = false;
-      pickup.respawnAt = now + pickup.respawn;
+      pickup.despawnAt = 0;
+      pickup.respawnAt = pickup.rare
+        ? now + 70000 + Math.random() * 50000
+        : now + pickup.respawn;
 
       send(player.ws, {
         type: "pickup_collected",
@@ -1331,8 +1472,56 @@ function updatePowers(now, dt) {
   }
 }
 
-function handleAbility(player, ability) {
+function endGrapple(player, reason = "cancel") {
+  if (!player.grapple) return;
+  player.grapple = null;
+  broadcast({ type: "grapple_end", id: player.id, reason });
+}
+
+function handleGrapple(player, message = {}) {
   const now = Date.now();
+  if (!player.alive || round.status !== "playing" || player.stunnedUntil > now) return;
+  if (player.grapple) {
+    endGrapple(player, "cancel");
+    return;
+  }
+  if (now < player.grappleReadyAt) {
+    send(player.ws, { type: "ability_denied", ability: "grapple", readyAt: player.grappleReadyAt });
+    return;
+  }
+  const yaw = Number.isFinite(message.yaw) ? message.yaw : player.yaw;
+  const pitch = Number.isFinite(message.pitch) ? clamp(message.pitch, -1.45, 1.45) : player.pitch;
+  const direction = directionFromAngles(yaw, pitch);
+  const origin = { x: player.x, y: player.y + 1.55, z: player.z };
+  const distance = nearestWallDistance(origin, direction, GRAPPLE_RANGE);
+  if (!Number.isFinite(distance) || distance >= GRAPPLE_RANGE - 0.05 || distance < 2.2) {
+    send(player.ws, { type: "grapple_miss" });
+    return;
+  }
+  const target = {
+    x: origin.x + direction.x * Math.max(0.1, distance - 0.12),
+    y: origin.y + direction.y * Math.max(0.1, distance - 0.12),
+    z: origin.z + direction.z * Math.max(0.1, distance - 0.12)
+  };
+  player.grapple = { target, endsAt: now + GRAPPLE_DURATION_MS };
+  player.grappleReadyAt = now + GRAPPLE_COOLDOWN_MS;
+  recordAction(player, { type: "grapple", target });
+  broadcast({
+    type: "grapple_start",
+    id: player.id,
+    origin,
+    target,
+    endsAt: player.grapple.endsAt,
+    readyAt: player.grappleReadyAt
+  });
+}
+
+function handleAbility(player, ability, message = {}) {
+  const now = Date.now();
+  if (ability === "grapple") {
+    handleGrapple(player, message);
+    return;
+  }
   if (ability !== "dash" || !player.alive || round.status !== "playing") return;
   if (!activePower(player, "dash", now) || now < player.dashReadyAt || player.stunnedUntil > now) return;
 
@@ -1457,6 +1646,10 @@ wss.on("connection", (ws) => {
     dashUntil: 0,
     dashReadyAt: 0,
     dashDirection: { x: 0, z: 0 },
+    grapple: null,
+    grappleReadyAt: 0,
+    weaponBloom: 0,
+    lastShotAt: 0,
     powers: makePowers(),
     lastDamagedAt: 0,
     lastGroundedAt: Date.now(),
@@ -1471,9 +1664,11 @@ wss.on("connection", (ws) => {
       right: false,
       jump: false,
       sprint: false,
-      crouch: false
+      crouch: false,
+      aiming: false
     },
-    history: [{ t: Date.now(), x: spawn.x, y: spawn.y, z: spawn.z, crouching: false }],
+    history: [{ t: Date.now(), x: spawn.x, y: spawn.y, z: spawn.z, yaw: team === "red" ? -Math.PI / 2 : Math.PI / 2, pitch: 0, weapon: "rifle", crouching: false }],
+    actionHistory: [],
     damageContributors: new Map()
   };
 
@@ -1546,7 +1741,8 @@ wss.on("connection", (ws) => {
         right: Boolean(input.right),
         jump: Boolean(input.jump),
         sprint: Boolean(input.sprint),
-        crouch: Boolean(input.crouch)
+        crouch: Boolean(input.crouch),
+        aiming: Boolean(input.aiming)
       };
 
       if (Number.isFinite(message.yaw)) player.yaw = message.yaw;
@@ -1576,7 +1772,7 @@ wss.on("connection", (ws) => {
     }
 
     if (message.type === "ability") {
-      handleAbility(player, String(message.ability || ""));
+      handleAbility(player, String(message.ability || ""), message);
       return;
     }
 
@@ -1631,7 +1827,7 @@ wss.on("connection", (ws) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Voxel Combat Arena v5 listening on port ${PORT}`);
+  console.log(`Voxel Combat Arena v6 listening on port ${PORT}`);
   console.log(`EC2 AZ: ${EC2_AZ}`);
   console.log(`Instance: ${INSTANCE_ID}`);
 });
