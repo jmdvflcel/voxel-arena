@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07111d">
+  <meta name="description" content="Voxel Combat Arena v8.5 — a server-authoritative multiplayer browser FPS.">
+  <title>Voxel Combat Arena v8.5</title>
+  <link rel="preload" href="/assets/audio/manifest.json" as="fetch" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+  <script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
+</head>
+<body>
+  <div id="postFx" aria-hidden="true"><i class="post-vignette"></i><i class="post-bloom"></i><i class="post-grain"></i></div>
+  <div id="bootScreen">
+    <div class="boot-card">
+      <div class="eyebrow">AWS EC2 MULTIPLAYER · COMBAT EVOLVED</div>
+      <h1>Voxel Combat Arena <span class="version-mark">v8.5</span></h1>
+      <p class="tagline">A weapon-sight overhaul with visible first-person firearms, precisely aligned iron sights, aperture sights, holographic and reflex optics, a burst-fire prism sight, a conventional sniper scope, and a distinct railgun targeting display.</p>
+
+      <div class="identity-grid">
+        <label>Fighter name<input id="nameInput" maxlength="18" placeholder="Enter username" autocomplete="nickname"></label>
+        <label>Private match code<input id="roomCodeInput" maxlength="24" placeholder="Optional"></label>
+      </div>
+
+      <div class="menu-grid">
+        <label>Graphics<select id="qualitySelect"><option value="low">Performance</option><option value="medium" selected>Balanced</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
+        <label>Camera<select id="cameraSelect"><option value="first" selected>First person</option><option value="third">Third person</option></select></label>
+        <label>Mode preference<select id="modeSelect"><option value="tdm">Team Deathmatch</option><option value="koth">King of the Hill</option><option value="ffa">Free-for-All</option></select></label>
+        <label>Weapon finish<select id="skinSelect"><option value="standard">Standard</option><option value="carbon">Carbon · Level 3</option><option value="neon">Neon · Level 6</option><option value="royal">Royal · Level 10</option></select></label>
+        <label>Combat frame<select id="archetypeSelect"><option value="assault">Assault</option><option value="scout">Scout</option><option value="heavy">Heavy</option></select></label>
+        <label>Field of view<input id="fovInput" type="range" min="65" max="105" value="78"><span id="fovValue">78</span></label>
+        <label>Sensitivity<input id="sensitivityInput" type="range" min="0.35" max="2.5" value="1" step="0.05"><span id="sensitivityValue">1.00</span></label>
+        <label>Volume<input id="volumeInput" type="range" min="0" max="1" value="0.45" step="0.05"><span id="volumeValue">45%</span></label>
+        <label>ADS behavior<select id="adsModeSelect"><option value="hold">Hold to aim</option><option value="toggle">Toggle aim</option></select></label>
+      </div>
+
+      <div class="accessibility-row">
+        <label><input id="controllerInput" type="checkbox" checked> Controller</label>
+        <label><input id="reducedMotionInput" type="checkbox"> Reduced camera motion</label>
+        <label>Color vision<select id="colorblindSelect"><option value="none">Standard</option><option value="deuteranopia">Deuteranopia</option><option value="protanopia">Protanopia</option><option value="tritanopia">Tritanopia</option></select></label>
+      </div>
+
+      <button id="playButton">Enter Arena</button>
+      <div class="control-strip">WASD move · Shift sprint / steady scope · C crouch/slide · Space jump/mantle · Q dash · E grapple/release · Left click fire/light attack · Shift + attack heavy · Right click aim down the weapon-mounted sight/block · Mouse wheel magnified optic zoom · R reload · V camera · F spectator target · Enter chat · Tab scoreboard · Esc settings</div>
+    </div>
+  </div>
+
+  <div id="mouseLookHint" class="hidden">Click the game to enable mouse look · Esc releases the cursor</div>
+
+  <div id="pauseMenu" class="hidden">
+    <div class="pause-card">
+      <div class="eyebrow">PAUSED</div><h2>Settings & Controls</h2>
+      <div class="pause-grid">
+        <label>Graphics<select id="pauseQuality"><option value="low">Performance</option><option value="medium">Balanced</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
+        <label>Camera<select id="pauseCamera"><option value="first">First person</option><option value="third">Third person</option></select></label>
+        <label>Field of view<input id="pauseFov" type="range" min="65" max="105" value="78"></label>
+        <label>Sensitivity<input id="pauseSensitivity" type="range" min="0.35" max="2.5" value="1" step="0.05"></label>
+        <label>Volume<input id="pauseVolume" type="range" min="0" max="1" value="0.45" step="0.05"></label>
+        <label>ADS behavior<select id="pauseAdsMode"><option value="hold">Hold</option><option value="toggle">Toggle</option></select></label>
+        <label>Combat frame<select id="pauseArchetype"><option value="assault">Assault</option><option value="scout">Scout</option><option value="heavy">Heavy</option></select></label>
+        <label>Crosshair<select id="crosshairSelect"><option value="dynamic">Dynamic</option><option value="precision">Precision</option><option value="dot">Dot only</option></select></label>
+        <label>Color vision<select id="pauseColorblind"><option value="none">Standard</option><option value="deuteranopia">Deuteranopia</option><option value="protanopia">Protanopia</option><option value="tritanopia">Tritanopia</option></select></label>
+        <label class="check"><input id="pauseController" type="checkbox"> Enable controller</label>
+        <label class="check"><input id="pauseReducedMotion" type="checkbox"> Reduced camera motion</label>
+      </div>
+      <section class="keybind-panel"><header><strong>KEYBINDS</strong><small>Click a control, then press a key</small></header><div id="keybindGrid"></div></section>
+      <button id="resumeButton">Resume</button>
+    </div>
+  </div>
+
+  <header id="topHud">
+    <section class="team-score red"><span>RED</span><strong id="redScore">0</strong></section>
+    <section class="match-center"><span id="matchMode">TEAM DEATHMATCH</span><strong id="matchTimer">05:00</strong><small id="matchStatus">First to 30</small></section>
+    <section class="team-score blue"><strong id="blueScore">0</strong><span>BLUE</span></section>
+  </header>
+
+  <section id="objectiveHud" class="hidden"><span id="objectiveName">CENTRAL FOUNDRY</span><strong id="objectiveState">CONTESTED</strong><div class="objective-progress"><i id="objectiveProgress"></i></div></section>
+
+  <aside id="serverPanel"><strong>SERVER</strong><div>Version <span id="versionText">v8.5</span></div><div>AZ <span id="azText">connecting</span></div><div>Instance <span id="instanceText">connecting</span></div><div>Players <span id="playersText">0</span></div><div>Ping <span id="pingText">0 ms</span></div><div>Jitter <span id="jitterText">0 ms</span></div><div>Loss <span id="lossText">0%</span></div><div>FPS <span id="fpsText">0</span></div><div>Resolution <span id="resolutionText">100%</span></div></aside>
+  <aside id="radarPanel"><canvas id="radar" width="180" height="180"></canvas></aside>
+  <div id="cameraModeBadge">FIRST PERSON · V TO SWITCH</div>
+
+  <section id="progressionHud"><div><span id="levelText">LEVEL 1</span><small id="challengeText">Combat systems online</small></div><div class="xp-track"><i id="xpBar"></i></div></section>
+  <section id="powerPanel"><header><span>ACTIVE POWERS</span><small>Q dash · E momentum grapple</small></header><div id="powerHud" class="empty"></div></section>
+
+  <div id="scopeOverlay" class="hidden"><div class="scope-vignette"></div><div class="scope-glass"></div><div class="scope-shadow"></div><div class="scope-ring"></div><div class="scope-reticle horizontal"></div><div class="scope-reticle vertical"></div><div class="scope-mil mil-a"></div><div class="scope-mil mil-b"></div><div class="scope-mil mil-c"></div><div class="scope-mil mil-d"></div><div class="scope-dot"></div><div id="scopeLabel">1.0×</div><div id="scopeTelemetry">STABLE · 000 m</div></div>
+
+  <section id="grappleHud"><strong>E</strong><div><span>MOMENTUM GRAPPLE</span><small id="grappleState">READY</small><div class="grapple-meter"><i id="grappleMeter"></i></div></div></section>
+  <section id="staminaHud"><span>STAMINA</span><div><i id="staminaBar"></i></div><small id="staminaText">100</small></section>
+
+  <div id="crosshair"><span class="line top"></span><span class="line right"></span><span class="line bottom"></span><span class="line left"></span><span class="dot"></span></div>
+  <div id="hitMarker">×</div><div id="headshotMarker">HEADSHOT</div><div id="damageNumber">0</div><div id="damageOverlay"></div><div id="armorOverlay"></div><div id="damageDirection"></div>
+
+  <section id="playerHud"><div class="bar-group health-group"><div class="bar-label"><span>HEALTH</span><strong id="healthText">100</strong></div><div class="bar-track"><div id="healthBar" class="bar health"></div></div></div><div class="bar-group armor-group"><div class="bar-label"><span>ARMOR</span><strong id="armorText">25</strong></div><div class="bar-track"><div id="armorBar" class="bar armor"></div></div></div></section>
+
+  <section id="weaponHud"><div class="weapon-title"><span id="weaponIcon">▰</span><div><strong id="weaponName">Vector Rifle</strong><small id="weaponState">READY</small></div></div><div id="ammoDisplay"><strong id="magazineText">30</strong><span>/</span><span id="reserveText">150</span></div><div id="weaponSlots"></div></section>
+
+  <div id="interactionTip">Grapple preserves momentum · hold S to reel out · hold Shift while scoped to steady · heavy melee breaks guards</div><div id="pickupNotice"></div><div id="killBanner"></div><div id="killFeed"></div><div id="combatText"></div>
+  <section id="spectatorHud" class="hidden"><strong>SPECTATING</strong><span id="spectatorName">PLAYER</span><small>F / controller Y changes target</small></section>
+
+  <section id="chatPanel"><div id="messages"></div><input id="chatInput" maxlength="120" placeholder="Press Enter to chat"></section>
+  <section id="scoreboard" class="hidden"><div class="scoreboard-card"><header><h2>Scoreboard</h2><span id="scoreboardTimer">05:00</span></header><div class="scoreboard-columns"><div><h3 class="red-title">RED TEAM</h3><div id="redRows"></div></div><div><h3 class="blue-title">BLUE TEAM</h3><div id="blueRows"></div></div></div></div></section>
+  <section id="killCam" class="hidden"><header><strong>KILLCAM</strong><span id="killCamKiller">Enemy view</span></header><div class="killcam-progress"><div id="killCamProgress"></div></div><small>Press F, Space, or click to skip</small></section>
+  <section id="deathScreen" class="hidden"><div><div class="eyebrow">ELIMINATED</div><h2 id="deathTitle">You were defeated</h2><p id="respawnText">Respawning in 3...</p></div></section>
+  <section id="roundEnd" class="hidden"><div class="round-card"><div class="eyebrow">ROUND COMPLETE</div><h2 id="roundWinner">RED TEAM WINS</h2><p id="roundRestart">Next round begins soon</p><div id="roundHighlights"><span id="highlightEliminator">Top eliminator —</span><span id="highlightDamage">Top damage —</span><span id="highlightObjective">Objective leader —</span></div><div id="modeVote"><span>VOTE NEXT MODE</span><button data-mode="tdm">TDM <i id="voteTdm">0</i></button><button data-mode="koth">KOTH <i id="voteKoth">0</i></button><button data-mode="ffa">FFA <i id="voteFfa">0</i></button></div><div id="mapVote"><span>VOTE ARENA VARIANT</span><button data-map="foundry">FOUNDRY <i id="voteFoundry">0</i></button><button data-map="nightfall">NIGHTFALL <i id="voteNightfall">0</i></button><button data-map="storm">STORM <i id="voteStorm">0</i></button></div></div></section>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
