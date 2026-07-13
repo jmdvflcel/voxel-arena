@@ -1,0 +1,18 @@
+{
+  "rifle": "/assets/audio/rifle.wav",
+  "pistol": "/assets/audio/pistol.wav",
+  "smg": "/assets/audio/smg.wav",
+  "shotgun": "/assets/audio/shotgun.wav",
+  "marksman": "/assets/audio/marksman.wav",
+  "railgun": "/assets/audio/railgun.wav",
+  "sword": "/assets/audio/sword_swing.wav",
+  "voidblade": "/assets/audio/sword_swing.wav",
+  "meleeHit": "/assets/audio/sword_hit.wav",
+  "grapple": "/assets/audio/grapple.wav",
+  "hit": "/assets/audio/hit.wav",
+  "headshot": "/assets/audio/headshot.wav",
+  "impactMetal": "/assets/audio/impact_metal.wav",
+  "impactStone": "/assets/audio/impact_stone.wav",
+  "footstepStone": "/assets/audio/footstep_stone.wav",
+  "footstepGrass": "/assets/audio/footstep_grass.wav"
+}

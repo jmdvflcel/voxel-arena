@@ -1,0 +1,23 @@
+{
+  "name": "voxel-combat-arena",
+  "version": "9.1.0",
+  "private": true,
+  "description": "Server-authoritative multiplayer browser arena FPS with optimized render/HUD scheduling, cached viewmodel meshes, backpressure-safe snapshots, graceful EC2 deployment, clear ADS, and no bots",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node tools/check-project.js",
+    "smoke": "node tools/smoke-test.js",
+    "test": "npm run check && npm run presentation && npm run smoke",
+    "presentation": "node tools/presentation-test.js",
+    "load": "node tools/load-test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "4.22.2",
+    "ws": "8.21.0",
+    "three": "0.160.1"
+  }
+}
