@@ -1,0 +1,12 @@
+{
+  "environment": "/assets/models/arena_props.glb",
+  "weapons": {
+    "pistol": "/assets/models/pulse_pistol.glb",
+    "rifle": "/assets/models/vector_rifle_mk2.glb",
+    "shotgun": "/assets/models/scatter_cannon.glb",
+    "marksman": "/assets/models/longshot_mk2.glb",
+    "sword": "/assets/models/arc_blade_mk2.glb",
+    "voidblade": "/assets/models/void_reaper.glb"
+  },
+  "fallback": "Procedural modular weapons and arms remain active if authored models fail to load."
+}
