@@ -1,0 +1,8 @@
+{
+  "environment": "/assets/models/arena_props.glb",
+  "weapons": {
+    "rifle": "/assets/models/vector_rifle.glb",
+    "sword": "/assets/models/arc_blade.glb"
+  },
+  "fallback": "Procedural models remain active when WebGL model loading fails."
+}
