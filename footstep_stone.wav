@@ -1,0 +1,28 @@
+name: Voxel Arena CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - name: Install production dependencies
+        run: npm install --omit=dev --no-audit --no-fund --package-lock=false
+      - name: Static and asset validation
+        run: npm run check
+      - name: Character and weapon runtime validation
+        run: npm run presentation
+      - name: Ten-client multiplayer smoke test
+        run: BOT_COUNT=0 npm run smoke
