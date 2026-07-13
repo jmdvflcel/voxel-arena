@@ -1,8 +1,0 @@
-node_modules/
-package-lock.json
-npm-debug.log*
-*.log
-.DS_Store
-.env
-.vscode/
-.idea/
