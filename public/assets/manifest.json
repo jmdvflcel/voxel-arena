@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "audio": "/assets/audio/manifest.json",
+  "models": "/assets/models/manifest.json",
+  "presentation": "v8.1 modular character and weapon pipeline"
+}
