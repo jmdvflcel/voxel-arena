@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#09111f">
+  <title>Voxel Combat Arena v7</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="bootScreen">
+    <div class="boot-card">
+      <div class="eyebrow">AWS EC2 MULTIPLAYER</div>
+      <h1>Voxel Combat Arena <span class="version-mark">v7</span></h1>
+      <p class="tagline">A rebuilt combat sandbox with safe tactical spawning, momentum grappling, swept melee hit detection, responsive recoil, precision ADS, kill cams, and scalable visuals.</p>
+
+      <label>
+        Fighter name
+        <input id="nameInput" maxlength="18" placeholder="Enter username">
+      </label>
+
+      <div class="menu-grid">
+        <label>
+          Graphics
+          <select id="qualitySelect">
+            <option value="low">Performance</option>
+            <option value="medium" selected>Balanced</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+
+        <label>
+          Camera
+          <select id="cameraSelect">
+            <option value="first" selected>First person</option>
+            <option value="third">Third person</option>
+          </select>
+        </label>
+
+        <label>
+          Field of view
+          <input id="fovInput" type="range" min="65" max="95" value="78">
+          <span id="fovValue">78</span>
+        </label>
+
+        <label>
+          Sensitivity
+          <input id="sensitivityInput" type="range" min="0.5" max="2.2" value="1" step="0.05">
+          <span id="sensitivityValue">1.00</span>
+        </label>
+
+        <label>
+          Volume
+          <input id="volumeInput" type="range" min="0" max="1" value="0.45" step="0.05">
+          <span id="volumeValue">45%</span>
+        </label>
+      </div>
+
+      <button id="playButton">Enter Arena</button>
+
+      <div class="control-strip">
+        WASD move · Shift sprint / steady ADS · C crouch/slide · Space jump/mantle · Q dash power · E momentum grapple/release · Left click fire/attack · Right click ADS/block · R reload · 1–9 weapons · 0 rare blade · V camera · Enter chat · Tab scoreboard · Esc settings
+      </div>
+    </div>
+  </div>
+
+  <div id="pauseMenu" class="hidden">
+    <div class="pause-card">
+      <div class="eyebrow">PAUSED</div>
+      <h2>Settings</h2>
+
+      <label>
+        Graphics
+        <select id="pauseQuality">
+          <option value="low">Performance</option>
+          <option value="medium">Balanced</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+
+      <label>
+        Camera
+        <select id="pauseCamera">
+          <option value="first">First person</option>
+          <option value="third">Third person</option>
+        </select>
+      </label>
+
+      <label>
+        Field of view
+        <input id="pauseFov" type="range" min="65" max="95" value="78">
+      </label>
+
+      <label>
+        Sensitivity
+        <input id="pauseSensitivity" type="range" min="0.5" max="2.2" value="1" step="0.05">
+      </label>
+
+      <label>
+        Volume
+        <input id="pauseVolume" type="range" min="0" max="1" value="0.45" step="0.05">
+      </label>
+
+      <button id="resumeButton">Resume</button>
+    </div>
+  </div>
+
+  <header id="topHud">
+    <section class="team-score red">
+      <span>RED</span>
+      <strong id="redScore">0</strong>
+    </section>
+
+    <section class="match-center">
+      <span id="matchMode">TEAM DEATHMATCH</span>
+      <strong id="matchTimer">05:00</strong>
+      <small id="matchStatus">First to 30</small>
+    </section>
+
+    <section class="team-score blue">
+      <strong id="blueScore">0</strong>
+      <span>BLUE</span>
+    </section>
+  </header>
+
+  <aside id="serverPanel">
+    <strong>SERVER</strong>
+    <div>AZ <span id="azText">connecting</span></div>
+    <div>Instance <span id="instanceText">connecting</span></div>
+    <div>Players <span id="playersText">0</span></div>
+    <div>Ping <span id="pingText">0 ms</span></div>
+    <div>FPS <span id="fpsText">0</span></div>
+    <div>Resolution <span id="resolutionText">100%</span></div>
+  </aside>
+
+  <aside id="radarPanel">
+    <canvas id="radar" width="180" height="180"></canvas>
+  </aside>
+
+  <div id="cameraModeBadge">FIRST PERSON · V TO SWITCH</div>
+
+  <section id="powerPanel">
+    <header>
+      <span>ACTIVE POWERS</span>
+      <small>Collect glowing cores · Q dash · E permanent grapple</small>
+    </header>
+    <div id="powerHud" class="empty"></div>
+  </section>
+
+  <div id="scopeOverlay" class="hidden">
+    <div class="scope-vignette"></div>
+    <div class="scope-glass"></div>
+    <div class="scope-ring"></div>
+    <div class="scope-reticle horizontal"></div>
+    <div class="scope-reticle vertical"></div>
+    <div class="scope-mil mil-a"></div>
+    <div class="scope-mil mil-b"></div>
+    <div class="scope-mil mil-c"></div>
+    <div class="scope-mil mil-d"></div>
+    <div class="scope-dot"></div>
+    <div id="scopeLabel">1.0×</div>
+    <div id="scopeTelemetry">STABLE · 000 m</div>
+  </div>
+
+  <section id="grappleHud">
+    <strong>E</strong>
+    <div>
+      <span>MOMENTUM GRAPPLE</span>
+      <small id="grappleState">READY</small>
+      <div class="grapple-meter"><i id="grappleMeter"></i></div>
+    </div>
+  </section>
+
+  <div id="crosshair">
+    <span class="line top"></span>
+    <span class="line right"></span>
+    <span class="line bottom"></span>
+    <span class="line left"></span>
+    <span class="dot"></span>
+  </div>
+
+  <div id="hitMarker">×</div>
+  <div id="headshotMarker">HEADSHOT</div>
+  <div id="damageNumber">0</div>
+  <div id="damageOverlay"></div>
+  <div id="armorOverlay"></div>
+
+  <section id="playerHud">
+    <div class="bar-group health-group">
+      <div class="bar-label"><span>HEALTH</span><strong id="healthText">100</strong></div>
+      <div class="bar-track"><div id="healthBar" class="bar health"></div></div>
+    </div>
+
+    <div class="bar-group armor-group">
+      <div class="bar-label"><span>ARMOR</span><strong id="armorText">25</strong></div>
+      <div class="bar-track"><div id="armorBar" class="bar armor"></div></div>
+    </div>
+  </section>
+
+  <section id="weaponHud">
+    <div class="weapon-title">
+      <span id="weaponIcon">▰</span>
+      <div>
+        <strong id="weaponName">Vector Rifle</strong>
+        <small id="weaponState">READY</small>
+      </div>
+    </div>
+
+    <div id="ammoDisplay">
+      <strong id="magazineText">30</strong>
+      <span>/</span>
+      <span id="reserveText">150</span>
+    </div>
+
+    <div id="weaponSlots"></div>
+  </section>
+
+  <div id="interactionTip">E fires a magnetic grapple · release while moving for a momentum boost · crouched ADS grants first-shot precision</div>
+  <div id="pickupNotice"></div>
+  <div id="killBanner"></div>
+  <div id="killFeed"></div>
+  <div id="combatText"></div>
+
+  <section id="chatPanel">
+    <div id="messages"></div>
+    <input id="chatInput" maxlength="120" placeholder="Press Enter to chat">
+  </section>
+
+  <section id="scoreboard" class="hidden">
+    <div class="scoreboard-card">
+      <header>
+        <h2>Scoreboard</h2>
+        <span id="scoreboardTimer">05:00</span>
+      </header>
+
+      <div class="scoreboard-columns">
+        <div>
+          <h3 class="red-title">RED TEAM</h3>
+          <div id="redRows"></div>
+        </div>
+        <div>
+          <h3 class="blue-title">BLUE TEAM</h3>
+          <div id="blueRows"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="killCam" class="hidden">
+    <header><strong>KILLCAM</strong><span id="killCamKiller">Enemy view</span></header>
+    <div class="killcam-progress"><div id="killCamProgress"></div></div>
+    <small>Press F, Space, or click to skip</small>
+  </section>
+
+  <section id="deathScreen" class="hidden">
+    <div>
+      <div class="eyebrow">ELIMINATED</div>
+      <h2 id="deathTitle">You were defeated</h2>
+      <p id="respawnText">Respawning in 3...</p>
+    </div>
+  </section>
+
+  <section id="roundEnd" class="hidden">
+    <div class="round-card">
+      <div class="eyebrow">ROUND COMPLETE</div>
+      <h2 id="roundWinner">RED TEAM WINS</h2>
+      <p id="roundRestart">Next round begins soon</p>
+    </div>
+  </section>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
