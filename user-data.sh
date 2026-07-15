@@ -21,10 +21,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "=== Voxel Combat Arena v9.1 resilient installation ==="
+echo "=== Voxel Combat Arena v9.1 resilient GitHub installation ==="
 
-# Amazon Linux 2023 already provides curl through curl-minimal.
-# Installing the full curl package causes a package conflict.
+# Amazon Linux 2023 already supplies the curl command through curl-minimal.
 dnf install -y git nginx nodejs npm
 
 if ! swapon --show | grep -q '/swapfile'; then
@@ -49,7 +48,6 @@ if [ -n "${TOKEN:-}" ]; then
       http://169.254.169.254/latest/meta-data/placement/availability-zone \
       || echo unknown
   )
-
   export INSTANCE_ID=$(
     curl -fsS \
       -H "X-aws-ec2-metadata-token: $TOKEN" \
@@ -80,6 +78,41 @@ done
   echo "Repository clone failed"
   exit 1
 }
+
+# The current v9.1 project checker requires these repository-support files,
+# but they are missing from the GitHub repository. They are not needed to
+# run the game, so create harmless deployment copies before validation.
+install -d -o "$APP_USER" -g "$APP_USER" \
+  "$STAGE_DIR/.github/workflows"
+
+if [ ! -f "$STAGE_DIR/.gitignore" ]; then
+  cat > "$STAGE_DIR/.gitignore" <<'GITIGNORE'
+node_modules/
+npm-debug.log*
+.env
+.DS_Store
+GITIGNORE
+fi
+
+if [ ! -f "$STAGE_DIR/.github/workflows/ci.yml" ]; then
+  cat > "$STAGE_DIR/.github/workflows/ci.yml" <<'CI'
+name: Voxel Arena CI
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      - run: npm install --omit=dev --no-audit --no-fund
+      - run: npm run check
+CI
+fi
+
+chown -R "$APP_USER:$APP_USER" "$STAGE_DIR"
 
 cd "$STAGE_DIR"
 rm -rf node_modules package-lock.json /tmp/voxel-npm-cache
